@@ -141,8 +141,19 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ASK_NAME
 
 async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Сохраняет имя и начинает анкету."""
+    """Сохраняет имя, приветствует пользователя и начинает анкету."""
+    # Сохраняем имя в user_data
     context.user_data["name"] = update.message.text
+
+    # Промежуточное сообщение — благодарность и введение в опрос
+    thank_you_text = (
+        f"Спасибо, *{context.user_data['name']}*!\n\n"
+        "Давайте перейдём к короткому опросу, чтобы я мог лучше понять вашу ситуацию. "
+        "Пожалуйста, выбирайте один из вариантов ответа на каждый вопрос.\n\n"
+    )
+    await update.message.reply_text(thank_you_text, parse_mode="Markdown")
+
+    # Первый вопрос анкеты
     question = "❓ *1. Могу открыто говорить о своих чувствах и желаниях.*"
     keyboard = [
         [
@@ -153,6 +164,8 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text(question, reply_markup=reply_markup, parse_mode="Markdown")
+
+    # Устанавливаем счётчик вопросов
     context.user_data["current_question"] = 0
     return ASK_QUESTION_1
 
