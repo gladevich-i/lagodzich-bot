@@ -27,7 +27,7 @@ EASYPAY_API_URL = "https://api.easypay.by/v1/"  # или тестовый https:
 EASYPAY_MERCHANT_ID = os.getenv("EASYPAY_MERCHANT_ID", "ВАШ_MERCHANT_ID")
 EASYPAY_SECRET_KEY = os.getenv("EASYPAY_SECRET_KEY", "ВАШ_SECRET_KEY")
 EASYPAY_SERVICE_ID = os.getenv("EASYPAY_SERVICE_ID", "ВАШ_SERVICE_ID")
-EASYPAY_WEBHOOK_URL = "https://lagodzichbot.bothost.ru/easypay-webhook"  # публичный URL вашего сервера
+EASYPAY_WEBHOOK_URL = "https://lagodzichbot.bothost.ru/webhook"  # если что, добавить easypay-webhook
 PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+aBcDeFgHiJkLmNoPqRs"  # ссылка в закрытый канал
 EXPERT_USERNAME = "Elena_lagodzich"  # без @
 
