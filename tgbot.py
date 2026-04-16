@@ -27,7 +27,7 @@ EASYPAY_API_URL = "https://api.easypay.by/v1/"  # или тестовый https:
 EASYPAY_MERCHANT_ID = os.getenv("EASYPAY_MERCHANT_ID", "ВАШ_MERCHANT_ID")
 EASYPAY_SECRET_KEY = os.getenv("EASYPAY_SECRET_KEY", "ВАШ_SECRET_KEY")
 EASYPAY_SERVICE_ID = os.getenv("EASYPAY_SERVICE_ID", "ВАШ_SERVICE_ID")
-EASYPAY_WEBHOOK_URL = "https://your-server.com/easypay-webhook"  # публичный URL вашего сервера
+EASYPAY_WEBHOOK_URL = "https://lagodzichbot.bothost.ru/webhook"  # публичный URL вашего сервера
 PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+aBcDeFgHiJkLmNoPqRs"  # ссылка в закрытый канал
 EXPERT_USERNAME = "Elena_lagodzich"  # без @
 
@@ -111,7 +111,7 @@ async def grant_access_after_payment(user_id: int, bot):
             chat_id=user_id,
             text=(
                 f"✅ *Оплата прошла успешно!*\n\n"
-                f"Ваш доступ к закрытому каналу открыт.\n"
+                f"Ваш доступ к мастер-классу открыт.\n"
                 f"Перейдите по ссылке и присоединяйтесь:\n"
                 f"{PRIVATE_CHANNEL_INVITE_LINK}\n\n"
                 f"Ссылка действительна только для вас. Пожалуйста, не передавайте её."
@@ -132,9 +132,9 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["started_at"] = datetime.now().isoformat()
 
     welcome_text = (
-        f"👋 *Здравствуйте, {user.first_name}!*\n\n"
-        "Я — помощник эксперта по отношениям. Этот бот поможет вам лучше понять себя и свои отношения.\n\n"
-        "🔒 *Конфиденциальность гарантирована.*\n\n"
+        f"👋 *Здравствуйте!*\n\n"
+        "Я — помощник Елены Лагодич, эксперта в области психологии отношений с многолетним опытом работы. Я помогу вам лучше понять себя и свои отношения.\n\n"
+        "🔒 *Конфиденциальность гарантирована.* Все ваши ответы останутся между нами. Они нужны только для того, чтобы сделать нашу работу максимально точной и полезной для вас.\n\n"
         "👉 *Давайте познакомимся.* Как я могу к вам обращаться? Напишите ваше имя."
     )
     await update.message.reply_text(welcome_text, parse_mode="Markdown")
@@ -222,7 +222,7 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
     await context.bot.send_video(
         chat_id=update.effective_chat.id,
         video=video_id,
-        caption="Видео от эксперта"
+        caption="Отрывок из мастер-класса Елены Лагодич"
     )
 
     if stop_funnel:
@@ -259,9 +259,14 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         return ConversationHandler.END
     else:
         offer_text = (
-            "🎁 *Специальное предложение!*\n\n"
-            "Приглашаем вас на углублённый мастер-класс по отношениям.\n"
-            "Стоимость — всего 1990 руб.\n\n"
+            "Значит вы попали сюда не зря!*\n\n"
+            "Приглашаю вас посмотреть углубленный мастер-класс по отношениям от Елены Лагодич.\n"
+            "На нем вы узнаете:\n"
+            "✅ Как выстроить гармоничные отношения\n"
+            "✅ Где брать ресурс и энергию\n"
+            "✅ Техники, которые помогут уже сегодня\n"
+            "✅ Презентацию с полезными лайфхаками и упражнениями\n\n"
+            "Стоимость доступа — всего 50 бел. руб.\n\n"
             "👇 Нажмите кнопку ниже для оплаты."
         )
         keyboard = [[InlineKeyboardButton("💳 Перейти к оплате", callback_data="start_payment")]]
@@ -282,7 +287,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         "merchant_id": EASYPAY_MERCHANT_ID,
         "service_id": EASYPAY_SERVICE_ID,
         "order_id": order_id,
-        "amount": "19.90",  # Сумма в BYN (или RUB, зависит от настроек)
+        "amount": "50.00",  # Сумма в BYN (или RUB, зависит от настроек)
         "currency": "BYN",
         "description": f"Мастер-класс по отношениям ({name})",
         "customer": {
@@ -290,8 +295,8 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             "telegram_id": str(user_id)
         },
         "notification_url": EASYPAY_WEBHOOK_URL,
-        "success_url": "https://t.me/your_bot",  # после оплаты пользователь вернётся в Telegram
-        "cancel_url": "https://t.me/your_bot",
+        "success_url": "https://t.me/lagodzich_bot",  # после оплаты пользователь вернётся в Telegram
+        "cancel_url": "https://t.me/lagodzich_bot",
     }
 
     headers = {
@@ -314,7 +319,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             await query.edit_message_text(
                 f"✅ *Ссылка для оплаты готова!*\n\n"
                 f"[Нажмите сюда, чтобы оплатить]({payment_url})\n\n"
-                f"После успешной оплаты доступ в канал придёт автоматически.",
+                f"После успешной оплаты доступ к мастер-классу придёт автоматически.",
                 parse_mode="Markdown",
                 disable_web_page_preview=True
             )
@@ -354,25 +359,25 @@ def main() -> None:
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
-            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
-            ASK_QUESTION_1: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_2: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_3: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_4: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_5: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            WATCH_VIDEO: [
-                CallbackQueryHandler(handle_video_feedback, pattern="^video_feedback_"),
-            ],
-            ASK_VIDEO_FEEDBACK: [
-                CallbackQueryHandler(start_payment, pattern="^start_payment$"),
-            ],
-            SELF_REFLECTION_1: [],  # заглушки (можно добавить позже)
-            SELF_REFLECTION_2: [],
-            SELF_REFLECTION_3: [],
+        ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
+        ASK_QUESTION_1: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+        ASK_QUESTION_2: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+        ASK_QUESTION_3: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+        ASK_QUESTION_4: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+        ASK_QUESTION_5: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+        WATCH_VIDEO: [
+            CallbackQueryHandler(handle_video_feedback, pattern="^video_feedback_"),
+        ],
+        ASK_VIDEO_FEEDBACK: [
+            CallbackQueryHandler(start_payment, pattern="^start_payment$"),
+        ],
+        SELF_REFLECTION_1: [],
+        SELF_REFLECTION_2: [],
+        SELF_REFLECTION_3: [],
         },
         fallbacks=[
-            CommandHandler("start", restart),
-            CommandHandler("cancel", cancel),
+        CommandHandler("start", restart),
+        CommandHandler("cancel", cancel),
         ],
     )
     telegram_app.add_handler(conv_handler)
