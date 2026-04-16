@@ -29,7 +29,7 @@ EASYPAY_SECRET_KEY = os.getenv("EASYPAY_SECRET_KEY", "ВАШ_SECRET_KEY")
 EASYPAY_SERVICE_ID = os.getenv("EASYPAY_SERVICE_ID", "ВАШ_SERVICE_ID")
 EASYPAY_WEBHOOK_URL = "https://your-server.com/easypay-webhook"  # публичный URL вашего сервера
 PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+aBcDeFgHiJkLmNoPqRs"  # ссылка в закрытый канал
-EXPERT_USERNAME = "имя_эксперта"  # без @
+EXPERT_USERNAME = "Elena_lagodzich"  # без @
 
 # ID видео в Telegram (получить через @getidsbot)
 VIDEO_1_FILE_ID = "BAACAgIAAxkBAA..."  # видео для вопроса 1 (нет/не всегда)
