@@ -27,7 +27,7 @@ EASYPAY_API_URL = "https://api.easypay.by/v1/"  # или тестовый https:
 EASYPAY_MERCHANT_ID = os.getenv("EASYPAY_MERCHANT_ID", "ВАШ_MERCHANT_ID")
 EASYPAY_SECRET_KEY = os.getenv("EASYPAY_SECRET_KEY", "ВАШ_SECRET_KEY")
 EASYPAY_SERVICE_ID = os.getenv("EASYPAY_SERVICE_ID", "ВАШ_SERVICE_ID")
-EASYPAY_WEBHOOK_URL = "https://lagodzichbot.bothost.ru/webhook"  # публичный URL вашего сервера
+EASYPAY_WEBHOOK_URL = "https://lagodzichbot.bothost.ru/easypay-webhook"  # публичный URL вашего сервера
 PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+aBcDeFgHiJkLmNoPqRs"  # ссылка в закрытый канал
 EXPERT_USERNAME = "Elena_lagodzich"  # без @
 
@@ -351,7 +351,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 # ==================== MAIN ====================
-def main() -> None:
+# def main() -> None:
     global telegram_app
     # Создаём приложение Telegram
     telegram_app = Application.builder().token(TOKEN).build()
@@ -389,25 +389,53 @@ def main() -> None:
 async def main():
     """Асинхронная точка входа для запуска бота и веб-сервера."""
     global telegram_app
-    # Настройки для вебхука (если ты его используешь)
-    WEBHOOK_URL = "https://your-server.com/webhook" # Замени на свой URL
-    WEBHOOK_PATH = "/webhook"
 
     # Создаём приложение Telegram
     telegram_app = Application.builder().token(os.getenv("BOT_TOKEN")).build()
-    
-    # ... (добавление ConversationHandler и прочая настройка telegram_app) ...
-    conv_handler = ConversationHandler(...)
+
+    # Полноценное создание ConversationHandler (без многоточия!)
+    conv_handler = ConversationHandler(
+        entry_points=[CommandHandler("start", start)],
+        states={
+            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
+            ASK_QUESTION_1: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+            ASK_QUESTION_2: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+            ASK_QUESTION_3: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+            ASK_QUESTION_4: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+            ASK_QUESTION_5: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+            WATCH_VIDEO: [
+                CallbackQueryHandler(handle_video_feedback, pattern="^video_feedback_"),
+            ],
+            ASK_VIDEO_FEEDBACK: [
+                CallbackQueryHandler(start_payment, pattern="^start_payment$"),
+            ],
+            SELF_REFLECTION_1: [],
+            SELF_REFLECTION_2: [],
+            SELF_REFLECTION_3: [],
+        },
+        fallbacks=[
+            CommandHandler("start", restart),
+            CommandHandler("cancel", cancel),
+        ],
+    )
     telegram_app.add_handler(conv_handler)
 
-    # Инициализируем, запускаем и настраиваем вебхук
+    # Настройки для вебхука Telegram (если нужен)
+    WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")  # можно задать в переменных Bothost
+    WEBHOOK_PATH = "/webhook"
+
     await telegram_app.initialize()
-    await telegram_app.bot.set_webhook(url=WEBHOOK_URL + WEBHOOK_PATH)
+    if WEBHOOK_URL:
+        await telegram_app.bot.set_webhook(url=WEBHOOK_URL + WEBHOOK_PATH)
+        logger.info(f"Бот переведён в режим вебхука: {WEBHOOK_URL}{WEBHOOK_PATH}")
+    else:
+        # Если вебхук не задан – работаем через polling
+        await telegram_app.updater.start_polling()
+        logger.info("Бот запущен в режиме polling")
     await telegram_app.start()
 
-    # Получаем порт из переменной окружения (его предоставит Bothost)
+    # Запускаем Flask-сервер для приёма уведомлений от EasyPay
     port = int(os.environ.get("PORT", 5000))
-    # Запускаем Flask-сервер асинхронно
     from hypercorn.asyncio import serve
     from hypercorn.config import Config
     config = Config()
@@ -418,9 +446,8 @@ async def main():
     await telegram_app.stop()
 
 if __name__ == "__main__":
-    # Устанавливаем логирование
+    # Настройка логирования (можно оставить глобальную)
     logging.basicConfig(
         format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
     )
-    # Запускаем основную асинхронную функцию
     asyncio.run(main())
