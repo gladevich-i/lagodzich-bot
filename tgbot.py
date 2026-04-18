@@ -384,8 +384,27 @@ async def main():
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
-        states={ ... },  # оставьте как есть
-        fallbacks=[ ... ],
+        states={
+            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
+            ASK_QUESTION_1: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+            ASK_QUESTION_2: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+            ASK_QUESTION_3: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+            ASK_QUESTION_4: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+            ASK_QUESTION_5: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
+            WATCH_VIDEO: [
+                CallbackQueryHandler(handle_video_feedback, pattern="^video_feedback_"),
+            ],
+            ASK_VIDEO_FEEDBACK: [
+                CallbackQueryHandler(start_payment, pattern="^start_payment$"),
+            ],
+            SELF_REFLECTION_1: [],
+            SELF_REFLECTION_2: [],
+            SELF_REFLECTION_3: [],
+        },
+        fallbacks=[
+            CommandHandler("start", restart),
+            CommandHandler("cancel", cancel),
+        ],
     )
     telegram_app.add_handler(conv_handler)
 
