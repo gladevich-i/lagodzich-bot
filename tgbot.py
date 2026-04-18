@@ -10,7 +10,7 @@ from typing import Optional
 import requests
 from flask import Flask, request, jsonify
 
-from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, ChatAction
 from telegram.ext import (
     Application,
     CommandHandler,
@@ -205,6 +205,8 @@ async def handle_question_answer(update: Update, context: ContextTypes.DEFAULT_T
     else:
         # Анкета завершена
         await query.edit_message_text("Спасибо за ответы! Подбираю для вас видео...")
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        await asyncio.sleep(1.5)
         return await send_video_based_on_answers(update, context)
 
 async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -231,7 +233,7 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
             document=video_id,
-            caption="Отрывок из мастер-класса Елены Лагодич"
+            caption="*Отрывок из мастер-класса Елены Лагодич про психологию отношений и близости*"
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке документа: {e}")
@@ -242,6 +244,8 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
         return ConversationHandler.END
 
     # После любого видео задаём вопрос и продолжаем воронку
+    await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+    await asyncio.sleep(60.0)
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Откликнулась ли вам эта информация?",
@@ -266,6 +270,8 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         )
         return ConversationHandler.END
     else:
+        await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
+        await asyncio.sleep(1.5)
         offer_text = (
             "Значит вы попали сюда не зря!\n\n"
             "Приглашаю вас посмотреть углубленный мастер-класс по отношениям от Елены Лагодич.\n"
