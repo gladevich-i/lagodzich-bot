@@ -410,7 +410,7 @@ async def main():
     # Временно регистрируем обработчик
     telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id))
     
-    telegram_app.add_handler(conv_handler)
+    
 
     # Инициализация и запуск бота
     await telegram_app.initialize()
