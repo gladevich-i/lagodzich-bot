@@ -401,16 +401,7 @@ async def main():
             CommandHandler("cancel", cancel),
         ],
     )
-    
-    async def get_document_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    document = update.message.document
-    if document:
-        await update.message.reply_text(f"📎 file_id документа:\n`{document.file_id}`", parse_mode="Markdown")
-
-    # Временно регистрируем обработчик
-    telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id))
-    
-    
+    telegram_app.add_handler(conv_handler)
 
     # Инициализация и запуск бота
     await telegram_app.initialize()
