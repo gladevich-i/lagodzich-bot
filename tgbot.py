@@ -208,34 +208,30 @@ async def handle_question_answer(update: Update, context: ContextTypes.DEFAULT_T
         return await send_video_based_on_answers(update, context)
 
 async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Определяет, какой файл отправить, и отправляет его как документ."""
+    """Определяет, какое видео отправить, и продолжает воронку."""
     answers = context.user_data.get("answers", [])
     ans1 = next((a["answer"] for a in answers if a["question"] == 1), None)
     ans4 = next((a["answer"] for a in answers if a["question"] == 4), None)
     ans5 = next((a["answer"] for a in answers if a["question"] == 5), None)
 
     video_id = DEFAULT_VIDEO_FILE_ID
-    stop_funnel = False
 
     if ans1 in ("answer_no", "answer_not_always"):
         video_id = VIDEO_1_FILE_ID
-        stop_funnel = True
         logger.info("Отправка видео 1 (вопрос 1 нет/не всегда)")
     elif ans4 == "answer_yes":
         video_id = VIDEO_2_FILE_ID
-        stop_funnel = True
         logger.info("Отправка видео 2 (вопрос 4 да)")
     elif ans5 == "answer_yes":
         video_id = VIDEO_3_FILE_ID
-        stop_funnel = True
         logger.info("Отправка видео 3 (вопрос 5 да)")
 
-    # Отправляем файл как документ с обработкой ошибок
+    # Отправляем файл (документ)
     try:
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
             document=video_id,
-            caption="Отрывок из мастер-класса Елены Лагодич про психологию отношений и близости"
+            caption="Отрывок из мастер-класса Елены Лагодич"
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке документа: {e}")
@@ -245,22 +241,16 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
         )
         return ConversationHandler.END
 
-    if stop_funnel:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Благодарим за участие! Если захотите пройти анкету снова, нажмите /start."
-        )
-        return ConversationHandler.END
-    else:
-        await context.bot.send_message(
-            chat_id=update.effective_chat.id,
-            text="Откликнулась ли вам эта информация?",
-            reply_markup=InlineKeyboardMarkup([
-                [InlineKeyboardButton("✅ Да", callback_data="video_feedback_yes"),
-                 InlineKeyboardButton("❌ Нет", callback_data="video_feedback_no")]
-            ])
-        )
-        return WATCH_VIDEO
+    # После любого видео задаём вопрос и продолжаем воронку
+    await context.bot.send_message(
+        chat_id=update.effective_chat.id,
+        text="Откликнулась ли вам эта информация?",
+        reply_markup=InlineKeyboardMarkup([
+            [InlineKeyboardButton("✅ Да", callback_data="video_feedback_yes"),
+             InlineKeyboardButton("❌ Нет", callback_data="video_feedback_no")]
+        ])
+    )
+    return WATCH_VIDEO
 
 async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Обрабатывает ответ на вопрос о видео."""
@@ -376,6 +366,15 @@ async def main():
 
     # Создаём приложение Telegram
     telegram_app = Application.builder().token(TOKEN).build()
+
+    # --- Временный обработчик для получения file_id ---
+    # async def get_document_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    #    doc = update.message.document
+    #    if doc:
+    #        await update.message.reply_text(doc.file_id)
+    #    else:
+    #        await update.message.reply_text("Отправьте файл как документ.")
+    # telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id), group=1)
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
