@@ -231,10 +231,10 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
         stop_funnel = True
         logger.info("Отправка видео 3 (вопрос 5 да)")
 
-    # Отправляем видео
-    await context.bot.send_video(
+     # Отправляем файл как документ, если это видео
+    await context.bot.send_document( # <-- Изменили метод
         chat_id=update.effective_chat.id,
-        video=video_id,
+        document=video_id, # <-- Параметр называется document
         caption="Отрывок из мастер-класса Елены Лагодич"
     )
 
