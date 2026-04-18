@@ -371,46 +371,29 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 # ==================== MAIN ====================
 
 async def main():
-    """Асинхронная точка входа для запуска бота и веб-сервера."""
     global telegram_app
-
-    # Создаём приложение Telegram
     telegram_app = Application.builder().token(TOKEN).build()
+
+    # --- Временный обработчик для получения file_id ---
+    async def get_document_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        doc = update.message.document
+        if doc:
+            await update.message.reply_text(f"📎 file_id документа:\n`{doc.file_id}`", parse_mode="Markdown")
+    telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id))
+    # ------------------------------------------------
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
-        states={
-            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
-            ASK_QUESTION_1: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_2: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_3: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_4: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_5: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            WATCH_VIDEO: [
-                CallbackQueryHandler(handle_video_feedback, pattern="^video_feedback_"),
-            ],
-            ASK_VIDEO_FEEDBACK: [
-                CallbackQueryHandler(start_payment, pattern="^start_payment$"),
-            ],
-            SELF_REFLECTION_1: [],
-            SELF_REFLECTION_2: [],
-            SELF_REFLECTION_3: [],
-        },
-        fallbacks=[
-            CommandHandler("start", restart),
-            CommandHandler("cancel", cancel),
-        ],
+        states={ ... },  # оставьте как есть
+        fallbacks=[ ... ],
     )
     telegram_app.add_handler(conv_handler)
 
-    # Инициализация и запуск бота
     await telegram_app.initialize()
     await telegram_app.start()
-    # В ptb v20 polling запускается через updater
     await telegram_app.updater.start_polling()
     logger.info("Бот запущен в режиме polling")
 
-    # Запускаем Flask-сервер для приёма уведомлений от EasyPay
     port = int(os.environ.get("PORT", 5000))
     from hypercorn.asyncio import serve
     from hypercorn.config import Config
