@@ -374,9 +374,6 @@ async def main():
     """Асинхронная точка входа для запуска бота и веб-сервера."""
     global telegram_app
 
-    # Создаём приложение Telegram
-    telegram_app = Application.builder().token(TOKEN).build()
-
     async def get_document_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
     doc = update.message.document
     if doc:
@@ -385,8 +382,11 @@ async def main():
     else:
         await update.message.reply_text("Отправьте файл как документ.")
 
-# Добавляем с группой 1 (выполняется до ConversationHandler)
-telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id), group=1)
+    # Добавляем с группой 1 (выполняется до ConversationHandler)
+    telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id), group=1)
+
+    # Создаём приложение Telegram
+    telegram_app = Application.builder().token(TOKEN).build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
