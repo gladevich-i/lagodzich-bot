@@ -32,7 +32,7 @@ PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+aBcDeFgHiJkLmNoPqRs"  # ссылк�
 EXPERT_USERNAME = "Elena_lagodzich"  # без @
 
 # ID видео в Telegram (получить через @getidsbot)
-VIDEO_1_FILE_ID = "AAMCAgADGQEDBVQ-aeI1YfhpB6_pMcUVxufyRdel34sAAn2ZAAL1YxBL6JU6WbVHrbwBAAdtAAM7BA"  # видео для вопроса 1 (нет/не всегда)
+VIDEO_1_FILE_ID = "AgADWJUAAvVjGEs"  # видео для вопроса 1 (нет/не всегда)
 VIDEO_2_FILE_ID = "AAMCAgADGQEDBVRDaeI1aEV455B1p_N_CeKxYElnQ8QAAn6ZAAL1YxBLu6DRzeeH0PgBAAdtAAM7BA"  # видео для вопроса 4 (да)
 VIDEO_3_FILE_ID = "AAMCAgADGQEDBVRHaeI1buY8leSZ9neSfzhoYxmDzG4AAn-ZAAL1YxBLdQmX3RJMRxQBAAdtAAM7BA"  # видео для вопроса 5 (да)
 DEFAULT_VIDEO_FILE_ID = "AAMCAgADGQEDBVRDaeI1aEV455B1p_N_CeKxYElnQ8QAAn6ZAAL1YxBLu6DRzeeH0PgBAAdtAAM7BA"  # общее видео, если условия не сработали
