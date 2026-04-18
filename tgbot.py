@@ -24,7 +24,7 @@ from telegram.ext import (
 
 # ==================== НАСТРОЙКИ ====================
 TOKEN = os.getenv("BOT_TOKEN")
-EASYPAY_API_URL = "https://api.easypay.by/v1/"  # или тестовый https://api.easypay.by/sandbox/v1/
+EASYPAY_API_URL = "https://api.easypay.by/"  # или тестовый https://api.easypay.by/sandbox/v1/
 EASYPAY_MERCHANT_ID = os.getenv("EASYPAY_MERCHANT_ID", "ВАШ_MERCHANT_ID")
 EASYPAY_SECRET_KEY = os.getenv("EASYPAY_SECRET_KEY", "ВАШ_SECRET_KEY")
 EASYPAY_SERVICE_ID = os.getenv("EASYPAY_SERVICE_ID", "ВАШ_SERVICE_ID")
