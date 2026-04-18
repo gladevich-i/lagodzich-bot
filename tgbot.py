@@ -32,10 +32,10 @@ PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+aBcDeFgHiJkLmNoPqRs"  # ссылк�
 EXPERT_USERNAME = "Elena_lagodzich"  # без @
 
 # ID видео в Telegram (получить через @getidsbot)
-VIDEO_1_FILE_ID = "BAACAgIAAxkBAAFHfi5p44KXwG3lMDdv-hKwamq9NuJ5WAACfZkAAvVjEEutBeBipDF8EDsE"  # видео для вопроса 1 (нет/не всегда)
-VIDEO_2_FILE_ID = "AAMCAgADGQEDBVRDaeI1aEV455B1p_N_CeKxYElnQ8QAAn6ZAAL1YxBLu6DRzeeH0PgBAAdtAAM7BA"  # видео для вопроса 4 (да)
-VIDEO_3_FILE_ID = "AAMCAgADGQEDBVRHaeI1buY8leSZ9neSfzhoYxmDzG4AAn-ZAAL1YxBLdQmX3RJMRxQBAAdtAAM7BA"  # видео для вопроса 5 (да)
-DEFAULT_VIDEO_FILE_ID = "AAMCAgADGQEDBVRDaeI1aEV455B1p_N_CeKxYElnQ8QAAn6ZAAL1YxBLu6DRzeeH0PgBAAdtAAM7BA"  # общее видео, если условия не сработали
+VIDEO_1_FILE_ID = "BQACAgIAAxkBAAPtaeP82oFM3nVLgOJk6PSHpT3BPMcAAhKjAAIWfSBLaj7yaTknOuA7BA"  # видео для вопроса 1 (нет/не всегда)
+VIDEO_2_FILE_ID = "BQACAgIAAxkBAAPvaeP9NqxoD1_shLr1Af2yX1scG-wAAhOjAAIWfSBLSROB1giNwzc7BA"  # видео для вопроса 4 (да)
+VIDEO_3_FILE_ID = "BQACAgIAAxkBAAPxaeP9k2a1UDTL0bnZj4Sq8Hha4F0AAhWjAAIWfSBLNVR39jpWdJY7BA"  # видео для вопроса 5 (да)
+DEFAULT_VIDEO_FILE_ID = "BQACAgIAAxkBAAPvaeP9NqxoD1_shLr1Af2yX1scG-wAAhOjAAIWfSBLSROB1giNwzc7BA"  # общее видео, если условия не сработали
 
 # ==================== СОСТОЯНИЯ ====================
 (
@@ -235,7 +235,7 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
             document=video_id,
-            caption="Отрывок из мастер-класса Елены Лагодич"
+            caption="Отрывок из мастер-класса Елены Лагодич про психологию отношений и близости"
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке документа: {e}")
@@ -371,17 +371,11 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 # ==================== MAIN ====================
 
 async def main():
+    """Асинхронная точка входа для запуска бота и веб-сервера."""
     global telegram_app
-    telegram_app = Application.builder().token(TOKEN).build()
 
-    # --- Временный обработчик для получения file_id ---
-    async def get_document_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-        doc = update.message.document
-        if doc:
-            await update.message.reply_text(doc.file_id)
-        else:
-            await update.message.reply_text("Отправьте файл как документ.")
-    telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id), group=1)
+    # Создаём приложение Telegram
+    telegram_app = Application.builder().token(TOKEN).build()
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
