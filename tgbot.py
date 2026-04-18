@@ -277,7 +277,7 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         return ConversationHandler.END
     else:
         offer_text = (
-            "Значит вы попали сюда не зря!*\n\n"
+            "Значит вы попали сюда не зря!\n\n"
             "Приглашаю вас посмотреть углубленный мастер-класс по отношениям от Елены Лагодич.\n"
             "На нем вы узнаете:\n"
             "✅ Как выстроить гармоничные отношения\n"
@@ -374,37 +374,18 @@ async def main():
     global telegram_app
     telegram_app = Application.builder().token(TOKEN).build()
 
-    # --- Временный обработчик для получения file_id ---
+    # --- Временный обработчик для получения file_id (группа 1) ---
     async def get_document_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
         doc = update.message.document
         if doc:
             await update.message.reply_text(f"📎 file_id документа:\n`{doc.file_id}`", parse_mode="Markdown")
-    telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id))
-    # ------------------------------------------------
+    telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id), group=1)
+    # -------------------------------------------------------------
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
-        states={
-            ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
-            ASK_QUESTION_1: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_2: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_3: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_4: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            ASK_QUESTION_5: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-            WATCH_VIDEO: [
-                CallbackQueryHandler(handle_video_feedback, pattern="^video_feedback_"),
-            ],
-            ASK_VIDEO_FEEDBACK: [
-                CallbackQueryHandler(start_payment, pattern="^start_payment$"),
-            ],
-            SELF_REFLECTION_1: [],
-            SELF_REFLECTION_2: [],
-            SELF_REFLECTION_3: [],
-        },
-        fallbacks=[
-            CommandHandler("start", restart),
-            CommandHandler("cancel", cancel),
-        ],
+        states={...},  # ваш словарь
+        fallbacks=[...],
     )
     telegram_app.add_handler(conv_handler)
 
