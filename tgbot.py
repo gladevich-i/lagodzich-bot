@@ -73,7 +73,7 @@ def verify_easypay_signature(request_data: bytes, signature_header: str) -> bool
     ).hexdigest()
     return hmac.compare_digest(expected, signature_header)
 
-@app.route("/easypay-webhook", methods=["POST"])
+@app.route("/webhook", methods=["POST"]) # если что, добавить easypay-webhook
 def easypay_webhook():
     """Принимает уведомления об оплате от EasyPay."""
     signature = request.headers.get("X-Signature")
@@ -208,9 +208,8 @@ async def handle_question_answer(update: Update, context: ContextTypes.DEFAULT_T
         return await send_video_based_on_answers(update, context)
 
 async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Определяет, какое видео отправить, и отправляет."""
+    """Определяет, какой файл отправить, и отправляет его как документ."""
     answers = context.user_data.get("answers", [])
-    # Ищем ответы на конкретные вопросы
     ans1 = next((a["answer"] for a in answers if a["question"] == 1), None)
     ans4 = next((a["answer"] for a in answers if a["question"] == 4), None)
     ans5 = next((a["answer"] for a in answers if a["question"] == 5), None)
@@ -231,22 +230,28 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
         stop_funnel = True
         logger.info("Отправка видео 3 (вопрос 5 да)")
 
-     # Отправляем файл как документ, если это видео
-    await context.bot.send_document( # <-- Изменили метод
-        chat_id=update.effective_chat.id,
-        document=video_id, # <-- Параметр называется document
-        caption="Отрывок из мастер-класса Елены Лагодич"
-    )
+    # Отправляем файл как документ с обработкой ошибок
+    try:
+        await context.bot.send_document(
+            chat_id=update.effective_chat.id,
+            document=video_id,
+            caption="Отрывок из мастер-класса Елены Лагодич"
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке документа: {e}")
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Извините, произошла ошибка при загрузке видео. Попробуйте позже или обратитесь к администратору."
+        )
+        return ConversationHandler.END
 
     if stop_funnel:
-        # Завершаем воронку, не задавая вопрос о видео
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Благодарим за участие! Если захотите пройти анкету снова, нажмите /start."
         )
         return ConversationHandler.END
     else:
-        # Общее видео — задаём вопрос о видео
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
             text="Откликнулась ли вам эта информация?",
@@ -364,49 +369,14 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     return ConversationHandler.END
 
 # ==================== MAIN ====================
-# def main() -> None:
-    global telegram_app
-    # Создаём приложение Telegram
-    telegram_app = Application.builder().token(TOKEN).build()
-
-    conv_handler = ConversationHandler(
-        entry_points=[CommandHandler("start", start)],
-        states={
-        ASK_NAME: [MessageHandler(filters.TEXT & ~filters.COMMAND, ask_name)],
-        ASK_QUESTION_1: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-        ASK_QUESTION_2: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-        ASK_QUESTION_3: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-        ASK_QUESTION_4: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-        ASK_QUESTION_5: [CallbackQueryHandler(handle_question_answer, pattern="^answer_")],
-        WATCH_VIDEO: [
-            CallbackQueryHandler(handle_video_feedback, pattern="^video_feedback_"),
-        ],
-        ASK_VIDEO_FEEDBACK: [
-            CallbackQueryHandler(start_payment, pattern="^start_payment$"),
-        ],
-        SELF_REFLECTION_1: [],
-        SELF_REFLECTION_2: [],
-        SELF_REFLECTION_3: [],
-        },
-        fallbacks=[
-        CommandHandler("start", restart),
-        CommandHandler("cancel", cancel),
-        ],
-    )
-    telegram_app.add_handler(conv_handler)
-
-    # Запускаем бота (polling)
-    logger.info("Бот запущен")
-    telegram_app.run_polling()
 
 async def main():
     """Асинхронная точка входа для запуска бота и веб-сервера."""
     global telegram_app
 
     # Создаём приложение Telegram
-    telegram_app = Application.builder().token(os.getenv("BOT_TOKEN")).build()
+    telegram_app = Application.builder().token(TOKEN).build()
 
-    # Полноценное создание ConversationHandler (без многоточия!)
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -433,19 +403,12 @@ async def main():
     )
     telegram_app.add_handler(conv_handler)
 
-    # Настройки для вебхука Telegram (если нужен)
-    WEBHOOK_URL = os.getenv("WEBHOOK_URL", "")  # можно задать в переменных Bothost
-    WEBHOOK_PATH = "/webhook"
-
+    # Инициализация и запуск бота
     await telegram_app.initialize()
-    if WEBHOOK_URL:
-        await telegram_app.bot.set_webhook(url=WEBHOOK_URL + WEBHOOK_PATH)
-        logger.info(f"Бот переведён в режим вебхука: {WEBHOOK_URL}{WEBHOOK_PATH}")
-    else:
-        # Если вебхук не задан – работаем через polling
-        await telegram_app.updater.start_polling()
-        logger.info("Бот запущен в режиме polling")
     await telegram_app.start()
+    # В ptb v20 polling запускается через updater
+    await telegram_app.updater.start_polling()
+    logger.info("Бот запущен в режиме polling")
 
     # Запускаем Flask-сервер для приёма уведомлений от EasyPay
     port = int(os.environ.get("PORT", 5000))
@@ -455,12 +418,7 @@ async def main():
     config.bind = [f"0.0.0.0:{port}"]
     await serve(app, config)
 
-    # Останавливаем бота после остановки сервера
     await telegram_app.stop()
 
 if __name__ == "__main__":
-    # Настройка логирования (можно оставить глобальную)
-    logging.basicConfig(
-        format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-    )
     asyncio.run(main())
