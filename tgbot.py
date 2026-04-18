@@ -371,22 +371,17 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 # ==================== MAIN ====================
 
 async def main():
-    """Асинхронная точка входа для запуска бота и веб-сервера."""
     global telegram_app
-
-    async def get_document_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    doc = update.message.document
-    if doc:
-        # Отправляем чистый file_id без форматирования
-        await update.message.reply_text(doc.file_id)
-    else:
-        await update.message.reply_text("Отправьте файл как документ.")
-
-    # Добавляем с группой 1 (выполняется до ConversationHandler)
-    telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id), group=1)
-
-    # Создаём приложение Telegram
     telegram_app = Application.builder().token(TOKEN).build()
+
+    # --- Временный обработчик для получения file_id ---
+    async def get_document_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+        doc = update.message.document
+        if doc:
+            await update.message.reply_text(doc.file_id)
+        else:
+            await update.message.reply_text("Отправьте файл как документ.")
+    telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id), group=1)
 
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
