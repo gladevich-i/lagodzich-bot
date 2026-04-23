@@ -7,7 +7,7 @@ import hmac
 from datetime import datetime
 from typing import Optional
 
-from zeep import Client
+from zeep import Client, Settings
 from zeep.transports import Transport
 
 import requests
@@ -200,7 +200,7 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
             document=video_id,
-            caption=f"*Посмотрите этот небольшой отрывок из мастер-класса Елены Лагодич про психологию отношений и близости*"
+            caption=f"Посмотрите этот небольшой отрывок из мастер-класса Елены Лагодич про психологию отношений и близости"
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке документа: {e}")
@@ -279,9 +279,9 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     }
 
     try:
-        transport = Transport(session=requests.Session())
-        client = Client(wsdl=WSDL_URL, transport=transport)
-        client.set_soap_headers = None
+        transport = Transport(session=requests.Session(), encoding='windows-1251')
+        settings = Settings(strict=False)
+        client = Client(WSDL_URL, transport=transport, settings=settings)
 
         response = client.service.EP_CreateInvoice(**params)
         code = response.status.code
@@ -328,19 +328,21 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
     WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"
     try:
-        client = Client(WSDL_URL)
+        transport = Transport(session=requests.Session(), encoding='windows-1251')
+        settings = Settings(strict=False)
+        client = Client(WSDL_URL, transport=transport, settings=settings)
+        
         params = {
             "mer_no": mer_no,
-            "pass": passwd,       
+            "pass": passwd,
             "order": order_id
         }
         response = client.service.EP_IsInvoicePaid(**params)
-        
         return response.status.code == 200
     except Exception as e:
         logger.error(f"Ошибка проверки оплаты: {e}")
         return False
-
+    
 async def check_payment_loop(order_id: str, chat_id: int, user_id: int, bot, mer_no: str, passwd: str, max_attempts=15, interval=15):
     """Периодически проверяет статус счёта и выдаёт доступ при оплате."""
     for attempt in range(1, max_attempts + 1):
