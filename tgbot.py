@@ -257,13 +257,11 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         return ASK_VIDEO_FEEDBACK
 
 def create_easypay_client(wsdl_url):
-    """Создаёт SOAP-клиент, корректно обрабатывающий кодировку Windows-1251."""
+    """Создаёт SOAP-клиент, корректно обрабатывающий кодировку Windows-1251
+       и работающий даже при отсутствии wsdl:service."""
     session = req_lib.Session()
-    # Сообщаем серверу, что готовы принять ответ в windows-1251 или utf-8
     session.headers.update({'Accept-Charset': 'windows-1251, utf-8'})
     
-    # Подменяем метод send, чтобы принудительно устанавливать кодировку ответа,
-    # если сервер возвращает windows-1251 (особенно актуально для старых версий zeep)
     original_send = session.send
     def patched_send(request, **kwargs):
         response = original_send(request, **kwargs)
@@ -274,8 +272,20 @@ def create_easypay_client(wsdl_url):
     session.send = patched_send
 
     transport = Transport(session=session)
-    settings = Settings(strict=False)   # отключает строгую проверку XML
-    return Client(wsdl_url, transport=transport, settings=settings)
+    settings = Settings(strict=False)
+    client = Client(wsdl_url, transport=transport, settings=settings)
+
+    # Если в WSDL нет wsdl:service, создаём сервис вручную, используя первую привязку
+    if not client.wsdl.services:
+        # Берём первый binding и его адрес (или фиксированный endpoint)
+        binding = next(iter(client.wsdl.bindings.values()))
+        # Адрес эндпоинта – обычно совпадает с корнем SOAP-сервера (без ?wsdl)
+        endpoint = wsdl_url.replace('?wsdl', '')
+        # Создаём фиктивный сервис
+        service = client.create_service(binding.name, endpoint)
+        # Подменяем стандартный client.service, чтобы вызовы работали как обычно
+        client.service = service
+    return client
 
 async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
@@ -302,7 +312,6 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     try:
         client = create_easypay_client(WSDL_URL)
-
         response = client.service.EP_CreateInvoice(**params)
         code = response.status.code
         message = response.status.message
@@ -349,13 +358,14 @@ async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
     WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"
     try:
         client = create_easypay_client(WSDL_URL)
+        response = client.service.EP_IsInvoicePaid(**params)
         
         params = {
             "mer_no": mer_no,
             "pass": passwd,
             "order": order_id
         }
-        response = client.service.EP_IsInvoicePaid(**params)
+        
         return response.status.code == 200
     except Exception as e:
         logger.error(f"Ошибка проверки оплаты: {e}")
