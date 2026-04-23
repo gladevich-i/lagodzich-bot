@@ -7,6 +7,9 @@ import hmac
 from datetime import datetime
 from typing import Optional
 
+from zeep import Client
+from zeep.transports import Transport
+
 import requests
 from flask import Flask, request, jsonify
 
@@ -24,7 +27,6 @@ from telegram.ext import (
 
 # ==================== НАСТРОЙКИ ====================
 TOKEN = os.getenv("BOT_TOKEN")
-EASYPAY_API_URL = "https://api.prod.easypay.pt/2.0"  # или тестовый https://api.easypay.by/sandbox/v1/
 EASYPAY_MERCHANT_ID = os.getenv("EASYPAY_MERCHANT_ID", "ВАШ_MERCHANT_ID")
 EASYPAY_SECRET_KEY = os.getenv("EASYPAY_SECRET_KEY", "ВАШ_SECRET_KEY")
 EASYPAY_SERVICE_ID = os.getenv("EASYPAY_SERVICE_ID", "ВАШ_SERVICE_ID")
@@ -234,7 +236,7 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
             document=video_id,
-            caption="*Отрывок из мастер-класса Елены Лагодич про психологию отношений и близости*"
+            caption=f"*Посмотрите этот небольшой отрывок из мастер-класса Елены Лагодич про психологию отношений и близости*"
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке документа: {e}")
@@ -290,47 +292,46 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         return ASK_VIDEO_FEEDBACK
 
 async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
-    """Создаёт платёжную ссылку EasyPay и отправляет пользователю."""
+    """Создаёт счёт в Easypay через SOAP и отправляет ссылку пользователю."""
     query = update.callback_query
     await query.answer()
     user_id = update.effective_user.id
     name = context.user_data.get("name", "Участник")
     order_id = f"mk_{user_id}_{int(datetime.now().timestamp())}"
 
-    # Формируем запрос к EasyPay API для создания платежа
-    payload = {
-        "merchant_id": EASYPAY_MERCHANT_ID,
-        "service_id": EASYPAY_SERVICE_ID,
-        "order_id": order_id,
-        "amount": "50.00",  # Сумма в BYN (или RUB, зависит от настроек)
-        "currency": "BYN",
-        "description": f"Мастер-класс по отношениям ({name})",
-        "customer": {
-            "first_name": name,
-            "telegram_id": str(user_id)
-        },
-        "notification_url": EASYPAY_WEBHOOK_URL,
-        "success_url": "https://t.me/lagodzich_bot",  # после оплаты пользователь вернётся в Telegram
-        "cancel_url": "https://t.me/lagodzich_bot",
-    }
+    # Данные для SOAP-клиента
+    WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"  # или тестовый "https://ssl.easypay.by/test/test.wsdl"
+    MER_NO = os.getenv("EASYPAY_MERCHANT_ID", "ok1234")  # ваш номер поставщика
+    PASS = os.getenv("EASYPAY_SECRET_KEY", "your_pass")  # ваш пароль
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {EASYPAY_SECRET_KEY}"
+    # Параметры счёта
+    params = {
+        "mer_no": MER_NO,
+        "pass": PASS,
+        "order": order_id,
+        "sum": "50.00",         # сумма в бел. руб.
+        "exp": "3",             # время жизни счёта в днях
+        "card": "PT_ERIP",      # способ оплаты (ЕРИП)
+        "comment": f"Мастер-класс по отношениям ({name})"[:50],  # до 50 символов
+        "info": "Доступ к закрытому каналу с видео мастер-класса"[:2000],
+        "xml": ""               # дополнительные данные, если нужны
     }
 
     try:
-        response = requests.post(
-            f"{EASYPAY_API_URL}payment",
-            json=payload,
-            headers=headers,
-            timeout=10
-        )
-        response.raise_for_status()
-        payment_data = response.json()
-        payment_url = payment_data.get("payment_url")
+        # Создаём SOAP-клиент с явным указанием кодировки
+        transport = Transport(session=requests.Session())
+        client = Client(wsdl=WSDL_URL, transport=transport)
+        # Устанавливаем кодировку для корректной работы с Windows-1251
+        client.set_soap_headers = None
 
-        if payment_url:
+        # Вызываем функцию EP_CreateInvoice
+        response = client.service.EP_CreateInvoice(**params)
+        code = response.status.code
+        message = response.status.message
+
+        if code == 200:
+            # Счёт создан успешно, формируем ссылку на оплату
+            payment_url = f"https://ssl.easypay.by/pay/{order_id}/"
             await query.edit_message_text(
                 f"✅ *Ссылка для оплаты готова!*\n\n"
                 f"[Нажмите сюда, чтобы оплатить]({payment_url})\n\n"
@@ -340,20 +341,36 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             )
             context.user_data["pending_order_id"] = order_id
         else:
-            await query.edit_message_text("Ошибка создания платежа. Попробуйте позже.")
+            logger.error(f"Ошибка Easypay: {code} - {message}")
+            await query.edit_message_text("Ошибка создания счёта. Попробуйте позже.")
             return ConversationHandler.END
+
     except Exception as e:
-        logger.error(f"Ошибка EasyPay: {e}")
+        logger.error(f"Ошибка SOAP-запроса: {e}")
         await query.edit_message_text("Сервис оплаты временно недоступен. Попробуйте позже.")
         return ConversationHandler.END
 
-    # Ждём вебхук, но пользователю уже отправлена ссылка, диалог завершается
-    # (дальнейшее взаимодействие — через вебхук)
+    # Ожидаем подтверждения оплаты
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Ожидайте подтверждения оплаты. Обычно это занимает до минуты."
     )
     return ConversationHandler.END
+
+async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
+    """Проверяет статус оплаты счёта через SOAP."""
+    WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"
+    try:
+        client = Client(WSDL_URL)
+        response = client.service.EP_IsInvoicePaid(
+            mer_no=mer_no,
+            pass=passwd,
+            order=order_id
+        )
+        return response.status.code == 200
+    except Exception as e:
+        logger.error(f"Ошибка проверки оплаты: {e}")
+        return False
 
 async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Перезапуск воронки по /start."""
