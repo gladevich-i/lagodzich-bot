@@ -347,8 +347,6 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         except Exception as e:
             logger.error(f"Ошибка SOAP-запроса: {e}")
             logger.error(traceback.format_exc())
-        await query.edit_message_text("Сервис оплаты временно недоступен. Попробуйте позже.")
-        return ConversationHandler.END
 
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
@@ -372,7 +370,6 @@ async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
         except Exception as e:
             logger.error(f"Ошибка SOAP-запроса: {e}")
             logger.error(traceback.format_exc())
-        return False
     
 async def check_payment_loop(order_id: str, chat_id: int, user_id: int, bot, mer_no: str, passwd: str, max_attempts=15, interval=15):
     """Периодически проверяет статус счёта и выдаёт доступ при оплате."""
