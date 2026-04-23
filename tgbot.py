@@ -6,6 +6,7 @@ import hashlib
 import hmac
 from datetime import datetime
 from typing import Optional
+import traceback
 
 from zeep import Client, Settings
 from zeep.transports import Transport
@@ -343,8 +344,9 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             await query.edit_message_text("Ошибка создания счёта. Попробуйте позже.")
             return ConversationHandler.END
 
-    except Exception as e:
-        logger.error(f"Ошибка SOAP-запроса: {e}")
+        except Exception as e:
+            logger.error(f"Ошибка SOAP-запроса: {e}")
+            logger.error(traceback.format_exc())
         await query.edit_message_text("Сервис оплаты временно недоступен. Попробуйте позже.")
         return ConversationHandler.END
 
@@ -367,8 +369,9 @@ async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
         }
         
         return response.status.code == 200
-    except Exception as e:
-        logger.error(f"Ошибка проверки оплаты: {e}")
+        except Exception as e:
+            logger.error(f"Ошибка SOAP-запроса: {e}")
+            logger.error(traceback.format_exc())
         return False
     
 async def check_payment_loop(order_id: str, chat_id: int, user_id: int, bot, mer_no: str, passwd: str, max_attempts=15, interval=15):
