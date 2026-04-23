@@ -9,6 +9,7 @@ from typing import Optional
 
 from zeep import Client, Settings
 from zeep.transports import Transport
+import requests as req_lib
 
 import requests
 from flask import Flask, request, jsonify
@@ -255,6 +256,27 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text(offer_text, reply_markup=reply_markup, parse_mode="Markdown")
         return ASK_VIDEO_FEEDBACK
 
+def create_easypay_client(wsdl_url):
+    """Создаёт SOAP-клиент, корректно обрабатывающий кодировку Windows-1251."""
+    session = req_lib.Session()
+    # Сообщаем серверу, что готовы принять ответ в windows-1251 или utf-8
+    session.headers.update({'Accept-Charset': 'windows-1251, utf-8'})
+    
+    # Подменяем метод send, чтобы принудительно устанавливать кодировку ответа,
+    # если сервер возвращает windows-1251 (особенно актуально для старых версий zeep)
+    original_send = session.send
+    def patched_send(request, **kwargs):
+        response = original_send(request, **kwargs)
+        content_type = response.headers.get('Content-Type', '')
+        if 'windows-1251' in content_type.lower():
+            response.encoding = 'windows-1251'
+        return response
+    session.send = patched_send
+
+    transport = Transport(session=session)
+    settings = Settings(strict=False)   # отключает строгую проверку XML
+    return Client(wsdl_url, transport=transport, settings=settings)
+
 async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
     await query.answer()
@@ -279,9 +301,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     }
 
     try:
-        transport = Transport(session=requests.Session(), encoding='windows-1251')
-        settings = Settings(strict=False)
-        client = Client(WSDL_URL, transport=transport, settings=settings)
+        client = create_easypay_client(WSDL_URL)
 
         response = client.service.EP_CreateInvoice(**params)
         code = response.status.code
@@ -328,9 +348,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
     WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"
     try:
-        transport = Transport(session=requests.Session(), encoding='windows-1251')
-        settings = Settings(strict=False)
-        client = Client(WSDL_URL, transport=transport, settings=settings)
+        client = create_easypay_client(WSDL_URL)
         
         params = {
             "mer_no": mer_no,
