@@ -297,12 +297,18 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     }
 
     try:
+        logger.info("=== SOAP-запрос (windows-1251) ===")
+        logger.info(soap_xml)
+
         resp = req_lib.post(
             "https://ssl.easypay.by/xml/server.php",
             data=soap_xml.encode("windows-1251"),
             headers=headers,
             timeout=15
         )
+        logger.info(f"HTTP статус ответа: {resp.status_code}")
+        logger.info(f"Тело ответа:\n{resp.text}")
+
         if resp.status_code != 200:
             logger.error(f"HTTP ошибка: {resp.status_code}\n{resp.text}")
             await query.edit_message_text("Сервис оплаты временно недоступен.")
