@@ -318,7 +318,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         ("card", "PT_ERIP"),
         ("comment", f"Мастер-класс по отношениям ({name})"[:50]),
         ("info", "Доступ к закрытому каналу с видео мастер-класса"[:2000]),
-        # xml не добавляем, если он не нужен
+        ("xml", "")# xml не добавляем, если он не нужен
     ])
 
     try:
