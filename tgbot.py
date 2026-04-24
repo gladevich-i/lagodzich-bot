@@ -271,14 +271,11 @@ def create_easypay_client(wsdl_url):
             response.encoding = 'windows-1251'
         return response
     session.send = patched_send
-
     transport = Transport(session=session)
     settings = Settings(strict=False)
     client = Client(wsdl_url, transport=transport, settings=settings)
-
     # Привязываемся к конкретному сервису и порту (ваши значения из WSDL)
     client.bind('EasyPay', 'EasyPaySoap')
-
     return client
 
 async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -288,20 +285,24 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     name = context.user_data.get("name", "Участник")
     order_id = f"mk_{user_id}_{int(datetime.now().timestamp())}"
 
-    WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"
-    MER_NO = os.getenv("EASYPAY_MERCHANT_ID", "ok1234")
-    PASS = os.getenv("EASYPAY_SECRET_KEY", "your_pass")
-
+    # Используем присланный WSDL-файл
+    WSDL_URL = "https://ssl.easypay.by/xml/easypay.wsdl"   # или локальный путь, если положили файл
+    MER_NO = os.getenv("EASYPAY_MERCHANT_ID")
+    PASS = os.getenv("EASYPAY_SECRET_KEY")
+    
+    # Параметры для EP_CreateInvoice (без xml, если не нужен)
+    # sum передаём как Decimal, exp как int
+    from decimal import Decimal
     params = OrderedDict([
         ("mer_no", MER_NO),
         ("pass", PASS),
         ("order", order_id),
-        ("sum", "50"),                # сумма как целое число в строке (без ".00")
-        ("exp", "3"),
+        ("sum", Decimal("50.00")),          # строго decimal
+        ("exp", 3),                         # int
         ("card", "PT_ERIP"),
         ("comment", f"Мастер-класс по отношениям ({name})"[:50]),
         ("info", "Доступ к закрытому каналу с видео мастер-класса"[:2000]),
-        ("xml", "")             # непустой xml-тег (пустая строка может дать ошибку)
+        # xml не добавляем, если он не нужен
     ])
 
     try:
@@ -311,7 +312,9 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         message = response.status.message
 
         if code == 200:
-            payment_url = f"https://ssl.easypay.by/pay/{order_id}/"
+            # Из ответа берём epos_order (номер счета Easypay) для ссылки
+            epos_order = response.epos_order
+            payment_url = f"https://ssl.easypay.by/pay/{epos_order}/"
             await query.edit_message_text(
                 f"✅ *Ссылка для оплаты готова!*\n\n"
                 f"[Нажмите сюда, чтобы оплатить]({payment_url})\n\n"
@@ -320,8 +323,6 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
                 disable_web_page_preview=True
             )
             context.user_data["pending_order_id"] = order_id
-
-            # === Запускаем фоновую проверку статуса ===
             asyncio.create_task(
                 check_payment_loop(
                     order_id=order_id,
@@ -349,15 +350,10 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return ConversationHandler.END
 
 async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
-    WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"
+    WSDL_URL = "https://ssl.easypay.by/xml/easypay.wsdl"
     try:
         client = create_easypay_client(WSDL_URL)
-        params = {
-            "mer_no": mer_no,
-            "pass": passwd,
-            "order": order_id
-        }
-        response = client.service.EP_IsInvoicePaid(**params)
+        response = client.service.EP_IsInvoicePaid(mer_no, passwd, order_id)
         return response.status.code == 200
     except Exception as e:
         logger.error(f"Ошибка проверки оплаты: {e}")
