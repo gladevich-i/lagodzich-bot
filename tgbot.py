@@ -288,7 +288,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     name = context.user_data.get("name", "Участник")
     order_id = f"mk_{user_id}_{int(datetime.now().timestamp())}"
 
-    WSDL_URL = "https://ssl.easypay.by/xml/easypay.wsdl"
+    WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"
     MER_NO = os.getenv("EASYPAY_MERCHANT_ID", "ok1234")
     PASS = os.getenv("EASYPAY_SECRET_KEY", "your_pass")
 
@@ -349,7 +349,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return ConversationHandler.END
 
 async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
-    WSDL_URL = "https://ssl.easypay.by/xml/easypay.wsdl"
+    WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"
     try:
         client = create_easypay_client(WSDL_URL)
         params = {
