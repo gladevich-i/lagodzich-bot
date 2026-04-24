@@ -10,6 +10,7 @@ from typing import Optional
 from zeep import Client, Settings
 from zeep.transports import Transport
 import requests as req_lib
+from collections import OrderedDict
 
 import requests
 from flask import Flask, request, jsonify
@@ -291,17 +292,17 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     MER_NO = os.getenv("EASYPAY_MERCHANT_ID", "ok1234")
     PASS = os.getenv("EASYPAY_SECRET_KEY", "your_pass")
 
-    params = {
-        "mer_no": MER_NO,
-        "pass": PASS,
-        "order": order_id,
-        "sum": "50.00",
-        "exp": "3",
-        "card": "PT_ERIP",
-        "comment": f"Мастер-класс по отношениям ({name})"[:50],
-        "info": "Доступ к закрытому каналу с видео мастер-класса"[:2000],
-        "xml": ""
-    }
+    params = OrderedDict([
+        ("mer_no", MER_NO),
+        ("pass", PASS),
+        ("order", order_id),
+        ("sum", "50"),                # сумма как целое число в строке (без ".00")
+        ("exp", "3"),
+        ("card", "PT_ERIP"),
+        ("comment", f"Мастер-класс по отношениям ({name})"[:50]),
+        ("info", "Доступ к закрытому каналу с видео мастер-класса"[:2000]),
+        ("xml", "<xml/>")             # непустой xml-тег (пустая строка может дать ошибку)
+    ])
 
     try:
         client = create_easypay_client(WSDL_URL)
