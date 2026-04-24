@@ -258,38 +258,14 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         return ASK_VIDEO_FEEDBACK
 
 def create_easypay_client(wsdl_url):
-    """Создаёт SOAP-клиент Easypay с принудительной кодировкой windows-1251 для запроса."""
+    """Создаёт SOAP-клиент с кодировкой windows-1251."""
     session = req_lib.Session()
     session.headers.update({
-        'Content-Type': 'text/xml; charset=windows-1251',
-        'Accept-Charset': 'windows-1251, utf-8'
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     })
-
-    # Сохраняем оригинальный send
-    original_send = session.send
-
-    def patched_send(request, **kwargs):
-        # --- Обработка исходящего запроса: перекодируем тело в windows-1251 ---
-        if request.body:
-            # zeep создаёт тело в UTF-8, нам нужно перекодировать
-            body_str = request.body if isinstance(request.body, str) else request.body.decode('utf-8')
-            # Заменяем XML-декларацию, чтобы сервер увидел windows-1251
-            body_str = body_str.replace('encoding="utf-8"', 'encoding="windows-1251"')
-            request.body = body_str.encode('windows-1251')
-            request.headers['Content-Type'] = 'text/xml; charset=windows-1251'
-
-        response = original_send(request, **kwargs)
-
-        # --- Обработка ответа (оставляем ваш код) ---
-        content_type = response.headers.get('Content-Type', '')
-        if 'windows-1251' in content_type.lower():
-            response.encoding = 'windows-1251'
-        return response
-
-    session.send = patched_send
-
-    transport = Transport(session=session)
-    settings = Settings(strict=False)
+    # Родной способ задать кодировку запроса (работает в zeep >= 4.0)
+    transport = Transport(session=session, encoding='windows-1251')
+    settings = Settings(strict=False, xml_huge_tree=True)
     client = Client(wsdl_url, transport=transport, settings=settings)
     client.bind('EasyPay', 'EasyPaySoap')
     return client
