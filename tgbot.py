@@ -375,12 +375,17 @@ async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
     }
 
     try:
+        logger.info("=== Проверка оплаты: SOAP-запрос ===")
+        logger.info(soap_xml)
+
         resp = req_lib.post(
             "https://ssl.easypay.by/xml/server.php",
             data=soap_xml.encode("windows-1251"),
             headers=headers,
             timeout=10
         )
+        logger.info(f"Проверка оплаты HTTP статус: {resp.status_code}")
+        logger.info(f"Тело ответа:\n{resp.text}")
         if resp.status_code != 200:
             logger.error(f"HTTP ошибка при проверке: {resp.status_code}")
             return False
