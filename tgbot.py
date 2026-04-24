@@ -7,10 +7,10 @@ import hmac
 from datetime import datetime
 from typing import Optional
 
-from zeep import Client, Settings
-from zeep.transports import Transport
+import defusedxml.ElementTree as ET  
+from decimal import Decimal
+
 import requests as req_lib
-from collections import OrderedDict
 
 import requests
 from flask import Flask, request, jsonify
@@ -257,7 +257,6 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text(offer_text, reply_markup=reply_markup, parse_mode="Markdown")
         return ASK_VIDEO_FEEDBACK
 
-from zeep.transports import Transport as ZeepTransport
 
 class Win1251Transport(ZeepTransport):
     """Транспорт, принудительно перекодирующий SOAP-запрос в windows-1251."""
@@ -272,19 +271,14 @@ class Win1251Transport(ZeepTransport):
         message = body_str.encode('windows-1251')
         return super().post(address, message, headers)
 
-def create_easypay_client(wsdl_url):
-    """Создаёт SOAP-клиент Easypay с корректной кодировкой."""
-    session = req_lib.Session()
-    session.headers.update({
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
-    })
-
-    # Используем кастомный транспорт
-    transport = Win1251Transport(session=session)
-    settings = Settings(strict=False, xml_huge_tree=True)
-    client = Client(wsdl_url, transport=transport, settings=settings)
-    client.bind('EasyPay', 'EasyPaySoap')
-    return client
+def _make_soap_envelope(body_xml: str) -> str:
+    """Оборачивает тело запроса в SOAP-конверт."""
+    return f"""<?xml version="1.0" encoding="windows-1251"?>
+<soap:Envelope xmlns:soap="http://schemas.xmlsoap.org/soap/envelope/">
+  <soap:Body>
+    {body_xml}
+  </soap:Body>
+</soap:Envelope>"""
 
 async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     query = update.callback_query
@@ -293,41 +287,57 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     name = context.user_data.get("name", "Участник")
     order_id = f"mk_{user_id}_{int(datetime.now().timestamp())}"
 
-    # Используем присланный WSDL-файл
-    WSDL_URL = "https://ssl.easypay.by/xml/easypay.wsdl"   # или локальный путь, если положили файл
     MER_NO = os.getenv("EASYPAY_MERCHANT_ID")
     PASS = os.getenv("EASYPAY_SECRET_KEY")
-    
-    # Параметры для EP_CreateInvoice (без xml, если не нужен)
-    # sum передаём как Decimal, exp как int
-    from decimal import Decimal
-    params = OrderedDict([
-        ("mer_no", MER_NO),
-        ("pass", PASS),
-        ("order", order_id),
-        ("sum", Decimal("50.00")),          # строго decimal
-        ("exp", 3),                         # int
-        ("card", "PT_ERIP"),
-        ("comment", f"Мастер-класс по отношениям ({name})"[:50]),
-        ("info", "Доступ к закрытому каналу с видео мастер-класса"[:2000]),
-        ("xml", "")# xml не добавляем, если он не нужен
-    ])
+
+    # Формируем XML вручную
+    body_xml = f"""<EP_CreateInvoice xmlns="http://easypay.by/">
+      <mer_no>{MER_NO}</mer_no>
+      <pass>{PASS}</pass>
+      <order>{order_id}</order>
+      <sum>50.00</sum>
+      <exp>3</exp>
+      <card>PT_ERIP</card>
+      <comment>{f"Мастер-класс по отношениям ({name})"[:50]}</comment>
+      <info>Доступ к закрытому каналу с видео мастер-класса</info>
+      <xml></xml>
+    </EP_CreateInvoice>"""
+    soap_xml = _make_soap_envelope(body_xml)
+
+    headers = {
+        "Content-Type": "text/xml; charset=windows-1251",
+        "SOAPAction": "http://easypay.by/EP_CreateInvoice",
+    }
 
     try:
-        client = create_easypay_client(WSDL_URL)
-        logging.getLogger('zeep').setLevel(logging.DEBUG)
-        response = client.service.EP_CreateInvoice(**params)
-        code = response.status.code
-        message = response.status.message
+        resp = req_lib.post(
+            "https://ssl.easypay.by/xml/server.php",
+            data=soap_xml.encode("windows-1251"),
+            headers=headers,
+            timeout=15
+        )
+        if resp.status_code != 200:
+            logger.error(f"HTTP ошибка: {resp.status_code}\n{resp.text}")
+            await query.edit_message_text("Сервис оплаты временно недоступен.")
+            return ConversationHandler.END
+
+        # Парсим ответ
+        root = ET.fromstring(resp.content)
+        ns = {"easypay": "http://easypay.by/"}
+        status = root.find(".//easypay:status", ns)
+        if status is None:
+            raise ValueError("Не найден статус в ответе")
+
+        code = int(status.find("easypay:code", ns).text)
+        message = status.find("easypay:message", ns).text or ""
 
         if code == 200:
-            # Из ответа берём epos_order (номер счета Easypay) для ссылки
-            epos_order = response.epos_order
+            epos_order = root.find(".//easypay:epos_order", ns).text
             payment_url = f"https://ssl.easypay.by/pay/{epos_order}/"
             await query.edit_message_text(
                 f"✅ *Ссылка для оплаты готова!*\n\n"
                 f"[Нажмите сюда, чтобы оплатить]({payment_url})\n\n"
-                f"После успешной оплаты доступ к мастер-классу придёт автоматически.",
+                f"После успешной оплаты доступ придёт автоматически.",
                 parse_mode="Markdown",
                 disable_web_page_preview=True
             )
@@ -348,7 +358,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
             return ConversationHandler.END
 
     except Exception as e:
-        logger.error(f"Ошибка SOAP-запроса: {e}")
+        logger.error(f"Ошибка запроса к Easypay: {e}")
         await query.edit_message_text("Сервис оплаты временно недоступен. Попробуйте позже.")
         return ConversationHandler.END
 
@@ -359,17 +369,40 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return ConversationHandler.END
 
 async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
-    WSDL_URL = "https://ssl.easypay.by/xml/easypay.wsdl"
+    body_xml = f"""<EP_IsInvoicePaid xmlns="http://easypay.by/">
+      <mer_no>{mer_no}</mer_no>
+      <pass>{passwd}</pass>
+      <order>{order_id}</order>
+    </EP_IsInvoicePaid>"""
+    soap_xml = _make_soap_envelope(body_xml)
+
+    headers = {
+        "Content-Type": "text/xml; charset=windows-1251",
+        "SOAPAction": "http://easypay.by/EP_IsInvoicePaid",
+    }
+
     try:
-        client = create_easypay_client(WSDL_URL)
-        response = client.service.EP_IsInvoicePaid(mer_no, passwd, order_id)
-        return response.status.code == 200
+        resp = req_lib.post(
+            "https://ssl.easypay.by/xml/server.php",
+            data=soap_xml.encode("windows-1251"),
+            headers=headers,
+            timeout=10
+        )
+        if resp.status_code != 200:
+            logger.error(f"HTTP ошибка при проверке: {resp.status_code}")
+            return False
+
+        root = ET.fromstring(resp.content)
+        ns = {"easypay": "http://easypay.by/"}
+        status = root.find(".//easypay:status", ns)
+        code = int(status.find("easypay:code", ns).text)
+        return code == 200
     except Exception as e:
         logger.error(f"Ошибка проверки оплаты: {e}")
         return False
-    
-async def check_payment_loop(order_id: str, chat_id: int, user_id: int, bot, mer_no: str, passwd: str, max_attempts=10, interval=300):
-    """Периодически проверяет статус счёта и выдаёт доступ при оплате."""
+
+async def check_payment_loop(order_id: str, chat_id: int, user_id: int, bot,
+                             mer_no: str, passwd: str, max_attempts=10, interval=300):
     for attempt in range(1, max_attempts + 1):
         await asyncio.sleep(interval)
         logger.info(f"Проверка платежа {order_id}, попытка {attempt}/{max_attempts}")
