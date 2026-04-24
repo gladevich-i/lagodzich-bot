@@ -323,6 +323,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     try:
         client = create_easypay_client(WSDL_URL)
+        logging.getLogger('zeep').setLevel(logging.DEBUG)
         response = client.service.EP_CreateInvoice(**params)
         code = response.status.code
         message = response.status.message
