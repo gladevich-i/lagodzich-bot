@@ -6,7 +6,6 @@ import hashlib
 import hmac
 from datetime import datetime
 from typing import Optional
-import traceback
 
 from zeep import Client, Settings
 from zeep.transports import Transport
@@ -258,11 +257,11 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         return ASK_VIDEO_FEEDBACK
 
 def create_easypay_client(wsdl_url):
-    """Создаёт SOAP-клиент, корректно обрабатывающий кодировку Windows-1251
-       и работающий даже при отсутствии wsdl:service."""
+    """Создаёт SOAP-клиент Easypay с ручным указанием сервиса и порта."""
     session = req_lib.Session()
     session.headers.update({'Accept-Charset': 'windows-1251, utf-8'})
-    
+
+    # Патчим сессию для корректной обработки windows-1251
     original_send = session.send
     def patched_send(request, **kwargs):
         response = original_send(request, **kwargs)
@@ -276,16 +275,9 @@ def create_easypay_client(wsdl_url):
     settings = Settings(strict=False)
     client = Client(wsdl_url, transport=transport, settings=settings)
 
-    # Если в WSDL нет wsdl:service, создаём сервис вручную, используя первую привязку
-    if not client.wsdl.services:
-        # Берём первый binding и его адрес (или фиксированный endpoint)
-        binding = next(iter(client.wsdl.bindings.values()))
-        # Адрес эндпоинта – обычно совпадает с корнем SOAP-сервера (без ?wsdl)
-        endpoint = wsdl_url.replace('?wsdl', '')
-        # Создаём фиктивный сервис
-        service = client.create_service(binding.name, endpoint)
-        # Подменяем стандартный client.service, чтобы вызовы работали как обычно
-        client.service = service
+    # Привязываемся к конкретному сервису и порту (ваши значения из WSDL)
+    client.bind('EasyPay', 'EasyPaySoap')
+
     return client
 
 async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -295,7 +287,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     name = context.user_data.get("name", "Участник")
     order_id = f"mk_{user_id}_{int(datetime.now().timestamp())}"
 
-    WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"
+    WSDL_URL = "https://ssl.easypay.by/xml/easypay.wsdl"
     MER_NO = os.getenv("EASYPAY_MERCHANT_ID", "ok1234")
     PASS = os.getenv("EASYPAY_SECRET_KEY", "your_pass")
 
@@ -346,7 +338,6 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
     except Exception as e:
         logger.error(f"Ошибка SOAP-запроса: {e}")
-        logger.error(traceback.format_exc())   # ← добавили детальный лог
         await query.edit_message_text("Сервис оплаты временно недоступен. Попробуйте позже.")
         return ConversationHandler.END
 
@@ -357,7 +348,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     return ConversationHandler.END
 
 async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
-    WSDL_URL = "https://ssl.easypay.by/soap/?wsdl"
+    WSDL_URL = "https://ssl.easypay.by/xml/easypay.wsdl"
     try:
         client = create_easypay_client(WSDL_URL)
         response = client.service.EP_IsInvoicePaid(**params)
@@ -371,7 +362,6 @@ async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
         return response.status.code == 200
     except Exception as e:
         logger.error(f"Ошибка проверки оплаты: {e}")
-        logger.error(traceback.format_exc())   # ← детальный лог
         return False
     
 async def check_payment_loop(order_id: str, chat_id: int, user_id: int, bot, mer_no: str, passwd: str, max_attempts=15, interval=15):
