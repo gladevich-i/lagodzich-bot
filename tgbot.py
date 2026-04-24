@@ -258,22 +258,31 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         return ASK_VIDEO_FEEDBACK
 
 def create_easypay_client(wsdl_url):
-    """Создаёт SOAP-клиент Easypay с кодировкой windows-1251 через хук requests."""
+    """Создаёт SOAP-клиент Easypay с принудительной кодировкой windows-1251."""
     session = req_lib.Session()
-    session.headers.update({'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Trident/5.0)'})
+    session.headers.update({
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+    })
 
-    # Хук, который будет вызван перед отправкой запроса
-    def encode_body_to_win1251(prepared_request):
-        if prepared_request.body:
-            # Декодируем UTF-8 тело, перекодируем в windows-1251
-            body_str = prepared_request.body.decode('utf-8')
-            # Заменяем XML-декларацию, чтобы сервер не сомневался
+    original_send = session.send
+
+    def patched_send(request, **kwargs):
+        # Перекодируем тело запроса (bytes) из UTF-8 в windows-1251
+        if request.body:
+            body_str = request.body.decode('utf-8')
             body_str = body_str.replace('encoding="utf-8"', 'encoding="windows-1251"')
-            prepared_request.body = body_str.encode('windows-1251')
-            prepared_request.headers['Content-Type'] = 'text/xml; charset=windows-1251'
+            request.body = body_str.encode('windows-1251')
+            request.headers['Content-Type'] = 'text/xml; charset=windows-1251'
 
-    # Регистрируем хук на событие 'prepared_request'
-    session.hooks['prepared_request'].append(encode_body_to_win1251)
+        response = original_send(request, **kwargs)
+
+        # Ответ также принудительно перекодируем, если сервер указал windows-1251
+        content_type = response.headers.get('Content-Type', '')
+        if 'windows-1251' in content_type.lower():
+            response.encoding = 'windows-1251'
+        return response
+
+    session.send = patched_send
 
     transport = Transport(session=session)
     settings = Settings(strict=False)
