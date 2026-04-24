@@ -287,7 +287,6 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
       <card>PT_ERIP</card>
       <comment>{f"Мастер-класс по отношениям ({name})"[:50]}</comment>
       <info>Доступ к закрытому каналу с видео мастер-класса</info>
-      <xml></xml>
     </EP_CreateInvoice>"""
     soap_xml = _make_soap_envelope(body_xml)
 
@@ -297,18 +296,12 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     }
 
     try:
-        logger.info("=== SOAP-запрос (windows-1251) ===")
-        logger.info(soap_xml)
-
         resp = req_lib.post(
             "https://ssl.easypay.by/xml/server.php",
             data=soap_xml.encode("windows-1251"),
             headers=headers,
             timeout=15
         )
-        logger.info(f"HTTP статус ответа: {resp.status_code}")
-        logger.info(f"Тело ответа:\n{resp.text}")
-
         if resp.status_code != 200:
             logger.error(f"HTTP ошибка: {resp.status_code}\n{resp.text}")
             await query.edit_message_text("Сервис оплаты временно недоступен.")
@@ -375,17 +368,12 @@ async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
     }
 
     try:
-        logger.info("=== Проверка оплаты: SOAP-запрос ===")
-        logger.info(soap_xml)
-
         resp = req_lib.post(
             "https://ssl.easypay.by/xml/server.php",
             data=soap_xml.encode("windows-1251"),
             headers=headers,
             timeout=10
         )
-        logger.info(f"Проверка оплаты HTTP статус: {resp.status_code}")
-        logger.info(f"Тело ответа:\n{resp.text}")
         if resp.status_code != 200:
             logger.error(f"HTTP ошибка при проверке: {resp.status_code}")
             return False
