@@ -301,7 +301,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         ("card", "PT_ERIP"),
         ("comment", f"Мастер-класс по отношениям ({name})"[:50]),
         ("info", "Доступ к закрытому каналу с видео мастер-класса"[:2000]),
-        ("xml", "<xml/>")             # непустой xml-тег (пустая строка может дать ошибку)
+        ("xml", "")             # непустой xml-тег (пустая строка может дать ошибку)
     ])
 
     try:
@@ -352,20 +352,18 @@ async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
     WSDL_URL = "https://ssl.easypay.by/xml/easypay.wsdl"
     try:
         client = create_easypay_client(WSDL_URL)
-        response = client.service.EP_IsInvoicePaid(**params)
-        
         params = {
             "mer_no": mer_no,
             "pass": passwd,
             "order": order_id
         }
-        
+        response = client.service.EP_IsInvoicePaid(**params)
         return response.status.code == 200
     except Exception as e:
         logger.error(f"Ошибка проверки оплаты: {e}")
         return False
     
-async def check_payment_loop(order_id: str, chat_id: int, user_id: int, bot, mer_no: str, passwd: str, max_attempts=15, interval=15):
+async def check_payment_loop(order_id: str, chat_id: int, user_id: int, bot, mer_no: str, passwd: str, max_attempts=10, interval=300):
     """Периодически проверяет статус счёта и выдаёт доступ при оплате."""
     for attempt in range(1, max_attempts + 1):
         await asyncio.sleep(interval)
