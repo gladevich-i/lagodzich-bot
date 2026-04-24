@@ -2,4 +2,4 @@ python-telegram-bot[job-queue]>=20.0
 Flask>=2.0
 requests>=2.25
 hypercorn>=0.14
-zeep>=4.2.0
+defusedxml>=0.7
