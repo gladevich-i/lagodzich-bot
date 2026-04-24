@@ -257,35 +257,31 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         await query.edit_message_text(offer_text, reply_markup=reply_markup, parse_mode="Markdown")
         return ASK_VIDEO_FEEDBACK
 
+from zeep.transports import Transport as ZeepTransport
+
+class Win1251Transport(ZeepTransport):
+    """Транспорт, принудительно перекодирующий SOAP-запрос в windows-1251."""
+    def post(self, address, message, headers):
+        # message – это байтовая строка в UTF-8
+        body_str = message.decode('utf-8')
+        # Заменяем XML-декларацию
+        body_str = body_str.replace('encoding="utf-8"', 'encoding="windows-1251"')
+        # Принудительно устанавливаем правильный Content-Type
+        headers['Content-Type'] = 'text/xml; charset=windows-1251'
+        # Перекодируем тело
+        message = body_str.encode('windows-1251')
+        return super().post(address, message, headers)
+
 def create_easypay_client(wsdl_url):
-    """Создаёт SOAP-клиент Easypay с принудительной кодировкой windows-1251."""
+    """Создаёт SOAP-клиент Easypay с корректной кодировкой."""
     session = req_lib.Session()
     session.headers.update({
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
     })
 
-    original_send = session.send
-
-    def patched_send(request, **kwargs):
-        # Перекодируем тело запроса (bytes) из UTF-8 в windows-1251
-        if request.body:
-            body_str = request.body.decode('utf-8')
-            body_str = body_str.replace('encoding="utf-8"', 'encoding="windows-1251"')
-            request.body = body_str.encode('windows-1251')
-            request.headers['Content-Type'] = 'text/xml; charset=windows-1251'
-
-        response = original_send(request, **kwargs)
-
-        # Ответ также принудительно перекодируем, если сервер указал windows-1251
-        content_type = response.headers.get('Content-Type', '')
-        if 'windows-1251' in content_type.lower():
-            response.encoding = 'windows-1251'
-        return response
-
-    session.send = patched_send
-
-    transport = Transport(session=session)
-    settings = Settings(strict=False)
+    # Используем кастомный транспорт
+    transport = Win1251Transport(session=session)
+    settings = Settings(strict=False, xml_huge_tree=True)
     client = Client(wsdl_url, transport=transport, settings=settings)
     client.bind('EasyPay', 'EasyPaySoap')
     return client
