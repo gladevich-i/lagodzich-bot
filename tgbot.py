@@ -258,19 +258,6 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         return ASK_VIDEO_FEEDBACK
 
 
-class Win1251Transport(ZeepTransport):
-    """Транспорт, принудительно перекодирующий SOAP-запрос в windows-1251."""
-    def post(self, address, message, headers):
-        # message – это байтовая строка в UTF-8
-        body_str = message.decode('utf-8')
-        # Заменяем XML-декларацию
-        body_str = body_str.replace('encoding="utf-8"', 'encoding="windows-1251"')
-        # Принудительно устанавливаем правильный Content-Type
-        headers['Content-Type'] = 'text/xml; charset=windows-1251'
-        # Перекодируем тело
-        message = body_str.encode('windows-1251')
-        return super().post(address, message, headers)
-
 def _make_soap_envelope(body_xml: str) -> str:
     """Оборачивает тело запроса в SOAP-конверт."""
     return f"""<?xml version="1.0" encoding="windows-1251"?>
