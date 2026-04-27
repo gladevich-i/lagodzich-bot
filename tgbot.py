@@ -30,7 +30,8 @@ EASYPAY_SECRET_KEY = os.getenv("EASYPAY_SECRET_KEY", "ВАШ_SECRET_KEY")
 EASYPAY_SERVICE_ID = os.getenv("EASYPAY_SERVICE_ID", "ВАШ_SERVICE_ID")
 PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+DKi4P0URBy40ZTky"
 PRIVATE_CHANNEL_ID = -1003921507515
-EXPERT_USERNAME = "Elena_lagodzich"  # без @
+EXPERT_USERNAME = "Elena_lagodzich"
+EXPERT_CHANNEL_LINK = "https://t.me/lagodzich"
 
 # ID видео в Telegram (получить через @getidsbot)
 VIDEO_1_FILE_ID = "BQACAgIAAxkBAAPtaeP82oFM3nVLgOJk6PSHpT3BPMcAAhKjAAIWfSBLaj7yaTknOuA7BA"  # видео для вопроса 1 (нет/не всегда)
@@ -210,8 +211,17 @@ async def handle_reflection_answer(update: Update, context: ContextTypes.DEFAULT
         # Последний вопрос отвечен
         await query.edit_message_text(
             f"Спасибо за вашу обратную связь, она важна для нас!\n"
-            f"Если у вас остался вопрос, вы можете задать его напрямую Елене Лагодич – https://t.me/{EXPERT_USERNAME}",
+            f"Если у вас остался вопрос, вы можете задать его напрямую [Елене Лагодич](https://t.me/{EXPERT_USERNAME})",
             parse_mode="Markdown"
+        )
+        # Дополнительное сообщение с кнопкой
+        await context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="Если вы не хотите пропустить новые мастер-классы от Елены Лагодич – "
+                 "следите за обновлениями в её личном телеграм-канале!",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔔 Перейти", url=EXPERT_CHANNEL_LINK)]
+            ])
         )
         # Очищаем данные рефлексии
         user_data.pop('reflection_stage', None)
