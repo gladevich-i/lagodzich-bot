@@ -79,13 +79,14 @@ async def grant_access_after_payment(user_id: int, bot):
             member_limit=1,
             name=f"Order_{user_id}"
         )
+        safe_link = invite_link.invite_link.replace('_', r'\_')
         await bot.send_message(
             chat_id=user_id,
             text=(
                 f"✅ *Оплата прошла успешно!*\n\n"
                 f"Ваш доступ к мастер-классу открыт.\n"
                 f"Переходите по ссылке:\n"
-                f"{invite_link.invite_link}\n\n"
+                f"{safe_link}\n\n"
                 f"Ссылка действительна только для вас. Пожалуйста, не передавайте её."
             ),
             parse_mode="Markdown",
@@ -95,13 +96,14 @@ async def grant_access_after_payment(user_id: int, bot):
         logger.error(f"Ошибка отправки доступа пользователю {user_id}: {e}")
         # Запасной вариант – отправить общую ссылку, если создание не удалось
         try:
+            safe_general_link = PRIVATE_CHANNEL_INVITE_LINK.replace('_', r'\_')
             await bot.send_message(
                 chat_id=user_id,
                 text=(
                 f"✅ *Оплата прошла успешно!*\n\n"
                 f"Ваш доступ к мастер-классу открыт.\n"
                 f"Переходите по ссылке:\n"
-                f"{PRIVATE_CHANNEL_INVITE_LINK}\n\n"
+                f"{safe_general_link}\n\n"
                 f"Если ссылка не работает, обратитесь к @Elena_lagodzich."
                 ),
                 parse_mode="Markdown",
