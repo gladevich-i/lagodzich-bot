@@ -32,7 +32,8 @@ TOKEN = os.getenv("BOT_TOKEN")
 EASYPAY_MERCHANT_ID = os.getenv("EASYPAY_MERCHANT_ID", "ВАШ_MERCHANT_ID")
 EASYPAY_SECRET_KEY = os.getenv("EASYPAY_SECRET_KEY", "ВАШ_SECRET_KEY")
 EASYPAY_SERVICE_ID = os.getenv("EASYPAY_SERVICE_ID", "ВАШ_SERVICE_ID")
-PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+aBcDeFgHiJkLmNoPqRs"  # ссылка в закрытый канал
+PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+DKi4P0URBy40ZTky"
+PRIVATE_CHANNEL_ID = -1003921507515
 EXPERT_USERNAME = "Elena_lagodzich"  # без @
 
 # ID видео в Telegram (получить через @getidsbot)
@@ -74,22 +75,43 @@ def health():
     return "OK", 200
 
 async def grant_access_after_payment(user_id: int, bot):
-    """Отправляет пользователю пригласительную ссылку в канал."""
+    """Создаёт одноразовую ссылку и отправляет пользователю."""
     try:
+        # Создаём уникальную ссылку с лимитом 1 использование
+        invite_link = await bot.create_chat_invite_link(
+            chat_id=PRIVATE_CHANNEL_ID,
+            member_limit=1,
+            name=f"Order_{user_id}"
+        )
         await bot.send_message(
             chat_id=user_id,
             text=(
                 f"✅ *Оплата прошла успешно!*\n\n"
                 f"Ваш доступ к мастер-классу открыт.\n"
-                f"Перейдите по ссылке и присоединяйтесь:\n"
-                f"{PRIVATE_CHANNEL_INVITE_LINK}\n\n"
+                f"Переходите по ссылке:\n"
+                f"{invite_link.invite_link}\n\n"
                 f"Ссылка действительна только для вас. Пожалуйста, не передавайте её."
             ),
             parse_mode="Markdown",
         )
-        logger.info(f"Доступ отправлен пользователю {user_id}")
+        logger.info(f"Одноразовая ссылка отправлена пользователю {user_id}")
     except Exception as e:
         logger.error(f"Ошибка отправки доступа пользователю {user_id}: {e}")
+        # Запасной вариант – отправить общую ссылку, если создание не удалось
+        try:
+            await bot.send_message(
+                chat_id=user_id,
+                text=(
+                f"✅ *Оплата прошла успешно!*\n\n"
+                f"Ваш доступ к мастер-классу открыт.\n"
+                f"Переходите по ссылке:\n"
+                f"{PRIVATE_CHANNEL_INVITE_LINK}\n\n"
+                f"Если ссылка не работает, обратитесь к @Elena_lagodzich."
+                ),
+                parse_mode="Markdown",
+            )
+        except Exception as fallback_e:
+            logger.error(f"Не удалось отправить даже общую ссылку: {fallback_e}")
 
 # ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -285,7 +307,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
       <sum>00.02</sum>
       <exp>3</exp>
       <card>PT_EPOS</card>
-      <comment>{f"Мастер-класс по отношениям ({name})"[:50]}</comment>
+      <comment>{f"Мастер-класс по отношениям для {name}"[:50]}</comment>
       <info>Доступ к закрытому каналу с видео мастер-класса</info>
     </EP_CreateInvoice>"""
     soap_xml = _make_soap_envelope(body_xml)
@@ -355,9 +377,10 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         await query.edit_message_text("Сервис оплаты временно недоступен. Попробуйте позже.")
         return ConversationHandler.END
 
+    await asyncio.sleep(5)
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
-        text="Ожидайте подтверждения оплаты. Обычно это занимает до минуты."
+        text="После оплаты ожидайте ее подтверждения. Обычно это занимает около 2-3 минут."
     )
     return ConversationHandler.END
 
