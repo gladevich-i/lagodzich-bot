@@ -40,6 +40,9 @@ VIDEO_2_FILE_ID = "BQACAgIAAxkBAAPvaeP9NqxoD1_shLr1Af2yX1scG-wAAhOjAAIWfSBLSROB1
 VIDEO_3_FILE_ID = "BQACAgIAAxkBAAPxaeP9k2a1UDTL0bnZj4Sq8Hha4F0AAhWjAAIWfSBLNVR39jpWdJY7BA"  # видео для вопроса 5 (да)
 DEFAULT_VIDEO_FILE_ID = "BQACAgIAAxkBAAPvaeP9NqxoD1_shLr1Af2yX1scG-wAAhOjAAIWfSBLSROB1giNwzc7BA"  # общее видео, если условия не сработали
 
+# ==================== ДЛЯ ТЕСТА ====================
+ADMIN_USER_IDS = [675468047, 753375245]
+
 # ==================== СОСТОЯНИЯ ====================
 (
     ASK_NAME,
@@ -347,7 +350,7 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
             chat_id=update.effective_chat.id,
             document=video_id,
             caption=(
-             "Посмотрите этот небольшой отрывок из *мастер‑класса Елены Лагодич про психологию отношений и близости*.\n"
+             "Посмотрите этот небольшой отрывок из *мастер‑класса Елены Лагодич про психологию отношений и близости*.\n\n"
              "В нём вы сможете найти полезную информацию о своих отношениях с друзьями и близкими!"
             ),
             parse_mode="Markdown"
@@ -569,9 +572,8 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def simulate_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Симулирует успешную оплату для тестирования всей воронки.
        Доступно только админу (проверка по user_id)."""
-    ADMIN_USER_ID = [675468047, 753375245]
-
-    if update.effective_user.id != ADMIN_USER_ID:
+    
+    if update.effective_user.id not in ADMIN_USER_IDS:
         await update.message.reply_text("У вас нет прав на эту команду.")
         return
 
@@ -586,8 +588,8 @@ async def simulate_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def fast_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Немедленно отправляет вопрос о просмотре МК (для тестирования)."""
-    ADMIN_USER_ID = [675468047, 753375245]
-    if update.effective_user.id != ADMIN_USER_ID:
+    
+    if update.effective_user.id not in ADMIN_USER_IDS:
         await update.message.reply_text("У вас нет прав на эту команду.")
         return
 
