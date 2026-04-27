@@ -1,19 +1,15 @@
 import asyncio
 import os
 import logging
-import json
 import hashlib
 import hmac
 from datetime import datetime
 from typing import Optional
-
-import defusedxml.ElementTree as ET  
 from decimal import Decimal
 
+import defusedxml.ElementTree as ET
 import requests as req_lib
-
-import requests
-from flask import Flask, request, jsonify
+from flask import Flask
 
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.constants import ChatAction
@@ -57,18 +53,13 @@ DEFAULT_VIDEO_FILE_ID = "BQACAgIAAxkBAAPvaeP9NqxoD1_shLr1Af2yX1scG-wAAhOjAAIWfSB
     SELF_REFLECTION_3,
 ) = range(11)
 
-# ==================== ЛОГИРОВАНИЕ ====================
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
 )
 logger = logging.getLogger(__name__)
 
-# ==================== FLASK ДЛЯ ВЕБХУКА EASYPAY ====================
 app = Flask(__name__)
-
-# Глобальная ссылка на приложение бота (заполняется в main)
 telegram_app: Optional[Application] = None
-
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -112,6 +103,121 @@ async def grant_access_after_payment(user_id: int, bot):
             )
         except Exception as fallback_e:
             logger.error(f"Не удалось отправить даже общую ссылку: {fallback_e}")
+            pass
+
+    if telegram_app and telegram_app.job_queue:
+        telegram_app.job_queue.run_once(
+            check_watched_mk,
+            when=6 * 3600,  # 6 часов
+            chat_id=user_id,
+            user_id=user_id,
+            name=f"watch_check_{user_id}"
+        )
+        logger.info(f"Задача опроса запланирована для пользователя {user_id}")
+    else:
+        logger.error("JobQueue недоступен, опрос не запланирован")
+
+async def check_watched_mk(context: ContextTypes.DEFAULT_TYPE):
+    """Отправляет пользователю вопрос: посмотрел ли он МК?"""
+    job = context.job
+    user_id = job.user_id
+    chat_id = job.chat_id
+    try:
+        await context.bot.send_message(
+            chat_id=chat_id,
+            text="Вы уже посмотрели мастер-класс?",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Да", callback_data="watched_yes"),
+                 InlineKeyboardButton("❌ Нет", callback_data="watched_no")]
+            ])
+        )
+        logger.info(f"Вопрос о просмотре отправлен пользователю {user_id}")
+    except Exception as e:
+        logger.error(f"Ошибка отправки вопроса о просмотре: {e}")
+
+async def handle_watched_response(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает ответ на вопрос 'посмотрели ли МК'."""
+    query = update.callback_query
+    await query.answer()
+    data = query.data
+    user_id = update.effective_user.id
+
+    if data == "watched_yes":
+        # Сохраняем, что пользователь приступил к рефлексии
+        context.user_data['reflection_stage'] = 1
+        context.user_data['reflection_answers'] = []
+
+        await query.edit_message_text(
+            "Отлично, вы большой молодец, что сделали этот шаг! "
+            "Теперь ответьте на 3 вопроса после МК, чтобы оценить полученный результат.\n\n"
+            "❓ *1. Я понимаю, что здоровые отношения требуют работы и осознанности.*",
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Да", callback_data="reflection_1_yes"),
+                 InlineKeyboardButton("❌ Нет", callback_data="reflection_1_no"),
+                 InlineKeyboardButton("🤷 Не знаю", callback_data="reflection_1_idk")]
+            ])
+        )
+        logger.info(f"Пользователь {user_id} начинает рефлексию")
+    elif data == "watched_no":
+        await query.edit_message_text("Хорошо, вернусь к вам позже.")
+        # Планируем повторный запрос через 24 часа
+        if telegram_app and telegram_app.job_queue:
+            telegram_app.job_queue.run_once(
+                check_watched_mk,
+                when=24 * 3600,
+                chat_id=update.effective_chat.id,
+                user_id=user_id,
+                name=f"watch_check_retry_{user_id}"
+            )
+            logger.info(f"Повторный опрос запланирован для {user_id}")
+
+async def handle_reflection_answer(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Обрабатывает ответы на 3 вопроса рефлексии."""
+    query = update.callback_query
+    await query.answer()
+    data = query.data  # формат: reflection_{q_num}_{answer}
+    _, q_str, ans = data.split('_')
+    q_num = int(q_str)
+
+    # Сохраняем ответ
+    user_data = context.user_data
+    if 'reflection_answers' not in user_data:
+        user_data['reflection_answers'] = []
+    user_data['reflection_answers'].append({
+        'question': q_num,
+        'answer': ans
+    })
+
+    if q_num < 3:
+        # Следующий вопрос
+        next_q = q_num + 1
+        questions = {
+            2: "2. После обучения я чувствую себя более подготовленным(ой) к развитию здоровых отношений.",
+            3: "3. Мастер-класс помог мне понять свои собственные потребности в отношениях."
+        }
+        question_text = f"❓ *{questions[next_q]}*"
+        await query.edit_message_text(
+            question_text,
+            parse_mode="Markdown",
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("✅ Да", callback_data=f"reflection_{next_q}_yes"),
+                 InlineKeyboardButton("❌ Нет", callback_data=f"reflection_{next_q}_no"),
+                 InlineKeyboardButton("🤷 Не знаю", callback_data=f"reflection_{next_q}_idk")]
+            ])
+        )
+    else:
+        # Последний вопрос отвечен
+        await query.edit_message_text(
+            f"Спасибо за вашу обратную связь, она важна для нас!\n"
+            f"Если у вас остался вопрос, вы можете задать его напрямую Елене Лагодич – https://t.me/{EXPERT_USERNAME}",
+            parse_mode="Markdown"
+        )
+        # Очищаем данные рефлексии
+        user_data.pop('reflection_stage', None)
+        user_data.pop('reflection_answers', None)
+        logger.info(f"Рефлексия завершена для пользователя {update.effective_user.id}")
+
 
 # ==================== ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ====================
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -351,7 +457,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
                     "Для оплаты:\n"
                     "Отсканируйте этот QR‑код\n"
                     "Или зайдите в свой интернет‑банкинг ➡️ Услуги ЕРИП ➡️ Сервис E-POS ➡️ E-POS - оплата товаров и услуг ➡️ В поле Лицевой счет вставьте номер счета ниже\n\n"
-                    f"Номер счёта: `{epos_order}`"
+                    f"`{epos_order}`"
                 ),
                 parse_mode="Markdown"
             )
@@ -438,24 +544,63 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Диалог прерван. Для начала напишите /start.")
     return ConversationHandler.END
 
+# ==================== ДЛЯ ТЕСТА ====================
+
+async def simulate_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Симулирует успешную оплату для тестирования всей воронки.
+       Доступно только админу (проверка по user_id)."""
+    ADMIN_USER_ID = 675468047   # замените на ваш Telegram user_id (цифровой)
+
+    if update.effective_user.id != ADMIN_USER_ID:
+        await update.message.reply_text("У вас нет прав на эту команду.")
+        return
+
+    user_id = update.effective_user.id
+    # Выдаём доступ (как после реального платежа)
+    await grant_access_after_payment(user_id, context.bot)
+
+    await update.message.reply_text(
+        "✅ Доступ выдан (симулировано). Ожидайте вопрос через 6 часов.\n"
+        "Хотите сократить время ожидания? Напишите /fast_forward."
+    )
+
+async def fast_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Немедленно отправляет вопрос о просмотре МК (для тестирования)."""
+    ADMIN_USER_ID = 675468047
+    if update.effective_user.id != ADMIN_USER_ID:
+        await update.message.reply_text("У вас нет прав на эту команду.")
+        return
+
+    # Эмулируем вызов задачи JobQueue
+    job_context = {
+        "chat_id": update.effective_chat.id,
+        "user_id": update.effective_user.id,
+        "bot": context.bot
+    }
+    # Имитируем объект job, необходимый для функции check_watched_mk
+    class FakeJob:
+        def __init__(self, chat_id, user_id):
+            self.chat_id = chat_id
+            self.user_id = user_id
+    context.job = FakeJob(update.effective_chat.id, update.effective_user.id)
+    await check_watched_mk(context)
+    await update.message.reply_text("Вопрос о просмотре отправлен.")
+
 # ==================== MAIN ====================
 
 async def main():
     """Асинхронная точка входа для запуска бота и веб-сервера."""
     global telegram_app
 
-    # Создаём приложение Telegram
     telegram_app = Application.builder().token(TOKEN).build()
 
-    # --- Временный обработчик для получения file_id ---
-    # async def get_document_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    #    doc = update.message.document
-    #    if doc:
-    #        await update.message.reply_text(doc.file_id)
-    #    else:
-    #        await update.message.reply_text("Отправьте файл как документ.")
-    # telegram_app.add_handler(MessageHandler(filters.Document.ALL, get_document_id), group=1)
+    telegram_app.add_handler(CallbackQueryHandler(handle_watched_response, pattern='^watched_'))
+    telegram_app.add_handler(CallbackQueryHandler(handle_reflection_answer, pattern='^reflection_'))
 
+    # ==================== ДЛЯ ТЕСТА ====================
+    telegram_app.add_handler(CommandHandler("test_payment", simulate_payment))
+    telegram_app.add_handler(CommandHandler("fast_forward", fast_forward))
+   
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
         states={
@@ -485,11 +630,9 @@ async def main():
     # Инициализация и запуск бота
     await telegram_app.initialize()
     await telegram_app.start()
-    # В ptb v20 polling запускается через updater
     await telegram_app.updater.start_polling()
     logger.info("Бот запущен в режиме polling")
-
-    # Запускаем Flask-сервер для приёма уведомлений от EasyPay
+    
     port = int(os.environ.get("PORT", 5000))
     from hypercorn.asyncio import serve
     from hypercorn.config import Config
