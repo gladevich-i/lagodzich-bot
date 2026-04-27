@@ -606,13 +606,6 @@ async def fast_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await check_watched_mk(context)
     await update.message.reply_text("Вопрос о просмотре отправлен.")
 
-async def get_photo_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    photo = update.message.photo[-1]  # берём самое большое разрешение
-    await update.message.reply_text(f"photo_id: `{photo.file_id}`", parse_mode="Markdown")
-
-# Временно регистрируем обработчик с высоким приоритетом
-telegram_app.add_handler(MessageHandler(filters.PHOTO, get_photo_id), group=1)
-
 # ==================== MAIN ====================
 
 async def main():
