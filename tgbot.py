@@ -32,6 +32,7 @@ PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+DKi4P0URBy40ZTky"
 PRIVATE_CHANNEL_ID = -1003921507515
 EXPERT_USERNAME = "Elena_lagodzich"
 EXPERT_CHANNEL_LINK = "https://t.me/lagodzich"
+WELCOME_PHOTO_ID = "AgAD9aIAAtEKgUs"   
 
 # ID видео в Telegram (получить через @getidsbot)
 VIDEO_1_FILE_ID = "BQACAgIAAxkBAAPtaeP82oFM3nVLgOJk6PSHpT3BPMcAAhKjAAIWfSBLaj7yaTknOuA7BA"  # видео для вопроса 1 (нет/не всегда)
@@ -215,10 +216,11 @@ async def handle_reflection_answer(update: Update, context: ContextTypes.DEFAULT
             parse_mode="Markdown"
         )
         # Дополнительное сообщение с кнопкой
+        await asyncio.sleep(1.5)
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Если вы не хотите пропустить новые мастер-классы от Елены Лагодич – "
-                 "следите за обновлениями в её личном телеграм-канале!",
+            text="Не хотите пропустить новые мастер-классы – "
+                 "следите за обновлениями в телеграм-канале!",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔔 Перейти", url=EXPERT_CHANNEL_LINK)]
             ])
@@ -238,13 +240,17 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     context.user_data["username"] = user.username
     context.user_data["started_at"] = datetime.now().isoformat()
 
-    welcome_text = (
+    welcome_caption = (
         f"👋 *Здравствуйте!*\n\n"
         "Я — помощник Елены Лагодич, эксперта в области психологии отношений с многолетним опытом работы. Я помогу вам лучше понять себя и свои отношения.\n\n"
         "🔒 *Конфиденциальность гарантирована.* Все ваши ответы останутся между нами. Они нужны только для того, чтобы сделать нашу работу максимально точной и полезной для вас.\n\n"
         "👉 *Давайте познакомимся.* Как я могу к вам обращаться? Напишите ваше имя."
     )
-    await update.message.reply_text(welcome_text, parse_mode="Markdown")
+    await update.message.reply_photo(
+        photo=WELCOME_PHOTO_ID, 
+        caption=welcome_caption,
+        parse_mode="Markdown"
+    )
     return ASK_NAME
 
 async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
@@ -340,7 +346,11 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
         await context.bot.send_document(
             chat_id=update.effective_chat.id,
             document=video_id,
-            caption=f"Посмотрите этот небольшой отрывок из мастер-класса Елены Лагодич про психологию отношений и близости"
+            caption=(
+             "Посмотрите этот небольшой отрывок из *мастер‑класса Елены Лагодич про психологию отношений и близости*.\n"
+             "В нём вы сможете найти полезную информацию о своих отношениях с друзьями и близкими!"
+            ),
+            parse_mode="Markdown"
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке документа: {e}")
@@ -420,7 +430,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
       <mer_no>{MER_NO}</mer_no>
       <pass>{PASS}</pass>
       <order>{order_id}</order>
-      <sum>00.02</sum>
+      <sum>50.00</sum>
       <exp>3</exp>
       <card>PT_EPOS</card>
       <comment>{f"Мастер-класс по отношениям для {name}"[:50]}</comment>
@@ -559,7 +569,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def simulate_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Симулирует успешную оплату для тестирования всей воронки.
        Доступно только админу (проверка по user_id)."""
-    ADMIN_USER_ID = 675468047   # замените на ваш Telegram user_id (цифровой)
+    ADMIN_USER_ID = [675468047, 753375245]
 
     if update.effective_user.id != ADMIN_USER_ID:
         await update.message.reply_text("У вас нет прав на эту команду.")
@@ -576,7 +586,7 @@ async def simulate_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def fast_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Немедленно отправляет вопрос о просмотре МК (для тестирования)."""
-    ADMIN_USER_ID = 675468047
+    ADMIN_USER_ID = [675468047, 753375245]
     if update.effective_user.id != ADMIN_USER_ID:
         await update.message.reply_text("У вас нет прав на эту команду.")
         return
