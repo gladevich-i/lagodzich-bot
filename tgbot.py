@@ -32,7 +32,7 @@ PRIVATE_CHANNEL_INVITE_LINK = "https://t.me/+DKi4P0URBy40ZTky"
 PRIVATE_CHANNEL_ID = -1003921507515
 EXPERT_USERNAME = "Elena_lagodzich"
 EXPERT_CHANNEL_LINK = "https://t.me/lagodzich"
-WELCOME_PHOTO_ID = "AgAD9aIAAtEKgUs"   
+WELCOME_PHOTO_ID = "AgACAgIAAxkBAAICT2nvi1KApvmCnUqGtMHf5xo_RdKmAAIYGWsb0QqBS9ZRDEWka5-DAQADAgADeAADOwQ"   
 
 # ID видео в Telegram (получить через @getidsbot)
 VIDEO_1_FILE_ID = "BQACAgIAAxkBAAPtaeP82oFM3nVLgOJk6PSHpT3BPMcAAhKjAAIWfSBLaj7yaTknOuA7BA"  # видео для вопроса 1 (нет/не всегда)
@@ -614,11 +614,6 @@ async def main():
 
     telegram_app = Application.builder().token(TOKEN).build()
 
-    async def get_photo_id(update, context):
-        photo = update.message.photo[-1]
-        await update.message.reply_text(f"photo_id: {photo.file_id}")
-    telegram_app.add_handler(MessageHandler(filters.PHOTO, get_photo_id), group=1)
-    
     telegram_app.add_handler(CallbackQueryHandler(handle_watched_response, pattern='^watched_'))
     telegram_app.add_handler(CallbackQueryHandler(handle_reflection_answer, pattern='^reflection_'))
 
