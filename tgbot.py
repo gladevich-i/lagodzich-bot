@@ -214,7 +214,7 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
 
     # После любого видео задаём вопрос и продолжаем воронку
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-    await asyncio.sleep(10.0)
+    await asyncio.sleep(60.0)
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Откликнулась ли вам эта информация?",
@@ -282,7 +282,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
       <mer_no>{MER_NO}</mer_no>
       <pass>{PASS}</pass>
       <order>{order_id}</order>
-      <sum>50.00</sum>
+      <sum>00.00</sum>
       <exp>3</exp>
       <card>PT_EPOS</card>
       <comment>{f"Мастер-класс по отношениям ({name})"[:50]}</comment>
@@ -296,18 +296,12 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     }
 
     try:
-        logger.info("=== SOAP-запрос (windows-1251) ===")
-        logger.info(soap_xml)
-
         resp = req_lib.post(
             "https://ssl.easypay.by/xml/server.php",
             data=soap_xml.encode("windows-1251"),
             headers=headers,
             timeout=15
         )
-        logger.info(f"HTTP статус ответа: {resp.status_code}")
-        logger.info(f"Тело ответа:\n{resp.text}")
-
         if resp.status_code != 200:
             logger.error(f"HTTP ошибка: {resp.status_code}\n{resp.text}")
             await query.edit_message_text("Сервис оплаты временно недоступен.")
@@ -325,7 +319,6 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
         if code == 200:
             epos_order = root.find(".//easypay:epos_order", ns).text
-            # Для PT_EPOS публичная ссылка формируется по числовому идентификатору
             qrcode_url = root.find(".//easypay:qrcode", ns).text
     
             await context.bot.send_photo(
@@ -333,8 +326,9 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
                 photo=qrcode_url,
                 caption=(
                     "✅ *Счёт успешно создан!*\n\n"
-                    "Отсканируйте этот QR‑код в приложении ЕРИП "
-                    "или интернет‑банкинге, чтобы оплатить.\n\n"
+                    "Для оплаты:\n"
+                    "Отсканируйте этот QR‑код\n"
+                    "Или зайдите в свой интернет‑банкинг ➡️ Услуги ЕРИП ➡️ Сервис E-POS ➡️ E-POS - оплата товаров и услуг ➡️ В поле Лицевой счет вставьте номер счета ниже\n\n"
                     f"Номер счёта: `{epos_order}`"
                 ),
                 parse_mode="Markdown"
@@ -381,17 +375,12 @@ async def check_payment_status(order_id: str, mer_no: str, passwd: str) -> bool:
     }
 
     try:
-        logger.info("=== Проверка оплаты: SOAP-запрос ===")
-        logger.info(soap_xml)
-
         resp = req_lib.post(
             "https://ssl.easypay.by/xml/server.php",
             data=soap_xml.encode("windows-1251"),
             headers=headers,
             timeout=10
         )
-        logger.info(f"Проверка оплаты HTTP статус: {resp.status_code}")
-        logger.info(f"Тело ответа:\n{resp.text}")
         if resp.status_code != 200:
             logger.error(f"HTTP ошибка при проверке: {resp.status_code}")
             return False
