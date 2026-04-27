@@ -272,7 +272,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
     await query.answer()
     user_id = update.effective_user.id
     name = context.user_data.get("name", "Участник")
-    order_id = f"mk_{user_id}_{int(datetime.now().timestamp())}"
+    order_id = f"mk{user_id % 10000:04d}_{int(datetime.now().timestamp() * 1000)}"
 
     MER_NO = os.getenv("EASYPAY_MERCHANT_ID")
     PASS = os.getenv("EASYPAY_SECRET_KEY")
