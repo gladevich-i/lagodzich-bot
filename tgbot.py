@@ -616,7 +616,7 @@ async def main():
 
     async def get_photo_id(update, context):
         photo = update.message.photo[-1]
-        await update.message.reply_text(f"photo_id: `{photo.file_id}`", parse_mode="Markdown")
+        await update.message.reply_text(f"photo_id: {photo.file_id}")
     telegram_app.add_handler(MessageHandler(filters.PHOTO, get_photo_id), group=1)
     
     telegram_app.add_handler(CallbackQueryHandler(handle_watched_response, pattern='^watched_'))
