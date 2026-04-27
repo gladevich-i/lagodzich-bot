@@ -325,7 +325,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
 
         if code == 200:
             epos_order = root.find(".//easypay:epos_order", ns).text
-            payment_url = f"https://ssl.easypay.by/pay/{epos_order}/"
+            payment_url = f"https://ssl.easypay.by/weborder/pay/?order_id={epos_order}"
             await query.edit_message_text(
                 f"✅ *Ссылка для оплаты готова!*\n\n"
                 f"[Нажмите сюда, чтобы оплатить]({payment_url})\n\n"
