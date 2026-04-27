@@ -324,12 +324,15 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         message = status.find("easypay:message", ns).text or ""
 
         if code == 200:
-            epos_order = root.find(".//easypay:epos_order", ns).text
-            payment_url = f"https://ssl.easypay.by/weborder/pay/?order_id={epos_order}"
+            epos_order = response.epos_order
+            # Для PT_EPOS публичная ссылка формируется по числовому идентификатору
+            numeric_id = epos_order.split('-')[0]   # берём "30453", а не всю строку
+            payment_url = f"https://ssl.easypay.by/weborder/pay/?order_id={numeric_id}"
+    
             await query.edit_message_text(
                 f"✅ *Ссылка для оплаты готова!*\n\n"
                 f"[Нажмите сюда, чтобы оплатить]({payment_url})\n\n"
-                f"После успешной оплаты доступ придёт автоматически.",
+                f"После успешной оплаты доступ к мастер-классу придёт автоматически.",
                 parse_mode="Markdown",
                 disable_web_page_preview=True
             )
