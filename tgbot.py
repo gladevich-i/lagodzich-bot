@@ -282,7 +282,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
       <mer_no>{MER_NO}</mer_no>
       <pass>{PASS}</pass>
       <order>{order_id}</order>
-      <sum>00.00</sum>
+      <sum>00.02</sum>
       <exp>3</exp>
       <card>PT_EPOS</card>
       <comment>{f"Мастер-класс по отношениям ({name})"[:50]}</comment>
