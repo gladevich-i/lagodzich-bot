@@ -324,7 +324,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         message = status.find("easypay:message", ns).text or ""
 
         if code == 200:
-            epos_order = response.epos_order
+            epos_order = root.find(".//easypay:epos_order", ns).text
             # Для PT_EPOS публичная ссылка формируется по числовому идентификатору
             numeric_id = epos_order.split('-')[0]   # берём "30453", а не всю строку
             payment_url = f"https://ssl.easypay.by/weborder/pay/?order_id={numeric_id}"
