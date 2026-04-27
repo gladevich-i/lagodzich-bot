@@ -214,7 +214,7 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
 
     # После любого видео задаём вопрос и продолжаем воронку
     await context.bot.send_chat_action(chat_id=update.effective_chat.id, action=ChatAction.TYPING)
-    await asyncio.sleep(60.0)
+    await asyncio.sleep(10.0)
     await context.bot.send_message(
         chat_id=update.effective_chat.id,
         text="Откликнулась ли вам эта информация?",
@@ -326,7 +326,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         if code == 200:
             epos_order = root.find(".//easypay:epos_order", ns).text
             # Для PT_EPOS публичная ссылка формируется по числовому идентификатору
-            qrcode_url = response.qrcode 
+            qrcode_url = root.find(".//easypay:qrcode", ns).text
     
             await context.bot.send_photo(
                 chat_id=update.effective_chat.id,
