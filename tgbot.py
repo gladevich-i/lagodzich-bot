@@ -326,16 +326,20 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         if code == 200:
             epos_order = root.find(".//easypay:epos_order", ns).text
             # Для PT_EPOS публичная ссылка формируется по числовому идентификатору
-            numeric_id = epos_order.split('-')[0]   # берём "30453", а не всю строку
-            payment_url = f"https://ssl.easypay.by/weborder/pay/?order_id={numeric_id}"
+            qrcode_url = response.qrcode 
     
-            await query.edit_message_text(
-                f"✅ *Ссылка для оплаты готова!*\n\n"
-                f"[Нажмите сюда, чтобы оплатить]({payment_url})\n\n"
-                f"После успешной оплаты доступ к мастер-классу придёт автоматически.",
-                parse_mode="Markdown",
-                disable_web_page_preview=True
+            await context.bot.send_photo(
+                chat_id=update.effective_chat.id,
+                photo=qrcode_url,
+                caption=(
+                    "✅ *Счёт успешно создан!*\n\n"
+                    "Отсканируйте этот QR‑код в приложении ЕРИП "
+                    "или интернет‑банкинге, чтобы оплатить.\n\n"
+                    f"Номер счёта: `{epos_order}`"
+                ),
+                parse_mode="Markdown"
             )
+            
             context.user_data["pending_order_id"] = order_id
             asyncio.create_task(
                 check_payment_loop(
