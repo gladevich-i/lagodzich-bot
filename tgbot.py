@@ -222,8 +222,8 @@ async def handle_reflection_answer(update: Update, context: ContextTypes.DEFAULT
         await asyncio.sleep(1.5)
         await context.bot.send_message(
             chat_id=update.effective_chat.id,
-            text="Не хотите пропустить новые мастер-классы – "
-                 "следите за обновлениями в телеграм-канале!",
+            text="*Не хотите пропустить новые мастер-классы – следите за обновлениями в телеграм-канале!*",
+            parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔔 Перейти", url=EXPERT_CHANNEL_LINK)]
             ])
@@ -582,8 +582,8 @@ async def simulate_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await grant_access_after_payment(user_id, context.bot)
 
     await update.message.reply_text(
-        "✅ Доступ выдан (симулировано). Ожидайте вопрос через 6 часов.\n"
-        "Хотите сократить время ожидания? Напишите /fast_forward."
+        "(для теста) ✅ Доступ выдан (симулировано). Ожидайте вопрос через 6 часов.\n"
+        "Хотите сократить время ожидания? Напишите /fast_forward. (для теста)"
     )
 
 async def fast_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -606,7 +606,7 @@ async def fast_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
             self.user_id = user_id
     context.job = FakeJob(update.effective_chat.id, update.effective_user.id)
     await check_watched_mk(context)
-    await update.message.reply_text("Вопрос о просмотре отправлен.")
+    await update.message.reply_text("(для теста) Вопрос о просмотре отправлен. (для теста)")
 
 # ==================== MAIN ====================
 
