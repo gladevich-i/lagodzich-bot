@@ -284,7 +284,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
       <order>{order_id}</order>
       <sum>50.00</sum>
       <exp>3</exp>
-      <card>PT_ERIP</card>
+      <card>PT_EPOS</card>
       <comment>{f"Мастер-класс по отношениям ({name})"[:50]}</comment>
       <info>Доступ к закрытому каналу с видео мастер-класса</info>
     </EP_CreateInvoice>"""
