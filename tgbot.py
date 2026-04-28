@@ -145,7 +145,7 @@ async def grant_access_after_payment(user_id: int, bot):
         'UPDATE payments SET status = ? WHERE order_id = ?',
         ('paid')
         )
-    await db.commit()
+        await db.commit()
 
     if telegram_app and telegram_app.job_queue:
         telegram_app.job_queue.run_once(
@@ -351,7 +351,7 @@ async def handle_question_answer(update: Update, context: ContextTypes.DEFAULT_T
         'INSERT INTO answers (user_id, username, name, question_id, answer) VALUES (?, ?, ?, ?, ?)',
         (update.effective_user.id, update.effective_user.username, context.user_data.get("name"), q_num, answer)
         )
-    await db.commit()
+        await db.commit()
 
     questions = [
         "1. Могу открыто говорить о своих чувствах и желаниях.",
@@ -568,7 +568,7 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         'INSERT OR REPLACE INTO payments (order_id, user_id, amount, status) VALUES (?, ?, ?, ?)',
         (order_id, user_id, 50.00, 'created')
         )
-    await db.commit()
+        await db.commit()
 
     await asyncio.sleep(5)
     await context.bot.send_message(
