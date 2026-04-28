@@ -844,6 +844,32 @@ async def handle_unrelated_message(update: Update, context: ContextTypes.DEFAULT
         "Или, если у вас возникли трудности, напишите напрямую @Elena_lagodzich."
     )
 
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Отправляет список команд в зависимости от прав пользователя."""
+    user_id = update.effective_user.id
+    if user_id in ADMIN_USER_IDS:
+        text = (
+            "🛠️ *Команды для администратора*\n\n"
+            "/start \\- Начать воронку заново\n"
+            "/cancel \\- Прервать диалог\n"
+            "/sendmsg \\<user\\_id\\> \\<текст\\> \\- Отправить сообщение пользователю\n"
+            "/broadcast\\_all \\<текст\\> \\- Текстовая рассылка всем\n"
+            "/broadcast\\_all\\_photo \\<подпись\\> \\- Рассылка фото с подписью\n"
+            "/export\\_all \\- Выгрузить все данные в CSV\n"
+            "/test\\_payment \\- Симуляция оплаты\n"
+            "/fast\\_forward \\- Мгновенно задать вопрос после МК\n"
+            "/help \\- Показать это сообщение"
+        )
+    else:
+        text = (
+            "👋 *Помощь по боту*\n\n"
+            "/start \\- Начать воронку заново\n"
+            "/cancel \\- Прервать диалог\n"
+            "/help \\- Показать это сообщение"
+            "Если команды не помогают решить вашу проблему, напишите напрямую @Elena_lagodzich."
+        )
+    await update.message.reply_text(text, parse_mode="MarkdownV2")
+
 # ==================== MAIN ====================
 
 async def main():
@@ -862,6 +888,8 @@ async def main():
     telegram_app.add_handler(CommandHandler("export_all", export_all))
     telegram_app.add_handler(CommandHandler("test_payment", simulate_payment))
     telegram_app.add_handler(CommandHandler("fast_forward", fast_forward))
+    
+    telegram_app.add_handler(CommandHandler("help", help_command))
    
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
