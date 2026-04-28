@@ -3,3 +3,4 @@ Flask>=2.0
 requests>=2.25
 hypercorn>=0.14
 defusedxml>=0.7
+aiosqlite>=0.20.0
