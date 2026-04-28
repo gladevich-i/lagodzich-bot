@@ -247,7 +247,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 
     welcome_caption = (
         f"👋 *Здравствуйте!*\n\n"
-        "Я — помощник Елены Лагодич, эксперта в области психологии отношений с многолетним опытом работы. Я помогу вам лучше понять себя и свои отношения.\n\n"
+        "Я — помощник Елены Лагодич, эксперта в области психологии с многолетним опытом работы. Я помогу вам лучше понять себя и свои отношения.\n\n"
         "🔒 *Конфиденциальность гарантирована.* Все ваши ответы останутся между нами. Они нужны только для того, чтобы сделать нашу работу максимально точной и полезной для вас.\n\n"
         "👉 *Давайте познакомимся.* Как я могу к вам обращаться? Напишите ваше имя."
     )
@@ -266,7 +266,7 @@ async def ask_name(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     # Промежуточное сообщение — благодарность и введение в опрос
     thank_you_text = (
         f"Спасибо, *{context.user_data['name']}*!\n\n"
-        "Давайте перейдём к короткому опросу, чтобы я мог лучше понять вашу ситуацию. "
+        "Давайте перейдём к короткому опросу из 5 вопросов, чтобы я мог лучше понять вашу ситуацию. "
         "Пожалуйста, выбирайте один из вариантов ответа на каждый вопрос.\n\n"
     )
     await update.message.reply_text(thank_you_text, parse_mode="Markdown")
@@ -396,12 +396,12 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
         await asyncio.sleep(1.5)
         offer_text = (
             "Значит вы попали сюда не зря!\n\n"
-            "Приглашаю вас посмотреть углубленный мастер-класс по отношениям от Елены Лагодич.\n"
+            "Приглашаю вас посмотреть углубленный мастер-класс «Искусство здоровых отношений» от Елены Лагодич.\n\n"
             "На нем вы узнаете:\n"
             "✅ Как выстроить гармоничные отношения\n"
             "✅ Где брать ресурс и энергию\n"
-            "✅ Техники, которые помогут уже сегодня\n"
-            "✅ Презентацию с полезными лайфхаками и упражнениями\n\n"
+            "✅ Техники, которые помогут вашим отношениям уже сегодня\n\n"
+            "А также получите презентацию с полезными лайфхаками и упражнениями!\n\n"
             "Стоимость доступа — всего 50 бел. руб.\n\n"
             "👇 Нажмите кнопку ниже для оплаты."
         )
@@ -569,7 +569,130 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     await update.message.reply_text("Диалог прерван. Для начала напишите /start.")
     return ConversationHandler.END
 
-# ==================== ДЛЯ ТЕСТА ====================
+# ==================== КОМАНДЫ УПРАВЛЕНИЯ АДМИНА ====================
+
+async def send_message_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Отправляет сообщение пользователю по его ID.
+       Использование: /sendmsg <user_id> <текст сообщения>"""
+    ADMIN_USER_IDS = [675468047, 753375245]  # ваши ID
+
+    if update.effective_user.id not in ADMIN_USER_IDS:
+        await update.message.reply_text("У вас нет прав на эту команду.")
+        return
+
+    # Проверяем аргументы
+    if not context.args or len(context.args) < 2:
+        await update.message.reply_text(
+            "Использование: /sendmsg <user_id> <текст сообщения>\n"
+            "Пример: /sendmsg 675468047 Здравствуйте! У нас новый мастер-класс."
+        )
+        return
+
+    try:
+        target_user_id = int(context.args[0])
+        message_text = ' '.join(context.args[1:])
+    except ValueError:
+        await update.message.reply_text("Неверный user_id. Он должен быть числом.")
+        return
+
+    try:
+        await context.bot.send_message(
+            chat_id=target_user_id,
+            text=message_text
+        )
+        await update.message.reply_text(f"✅ Сообщение отправлено пользователю {target_user_id}.")
+        logger.info(f"Админ {update.effective_user.id} отправил сообщение пользователю {target_user_id}")
+    except Exception as e:
+        await update.message.reply_text(f"Ошибка отправки: {e}")
+        logger.error(f"Ошибка отправки сообщения: {e}")
+
+async def broadcast_to_all_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Рассылает сообщение ВСЕМ пользователям, которые запускали бота."""
+    ADMIN_USER_IDS = [675468047, 753375245]   # ← замените на свои ID
+
+    if update.effective_user.id not in ADMIN_USER_IDS:
+        await update.message.reply_text("У вас нет прав на эту команду.")
+        return
+
+    if not context.args:
+        await update.message.reply_text(
+            "Использование: /broadcast_all <текст сообщения>\n"
+            "Пример: /broadcast_all Приглашаем на новый мастер-класс!"
+        )
+        return
+
+    message_text = ' '.join(context.args)
+
+    # Собираем все уникальные user_id из таблицы answers
+    async with aiosqlite.connect(DB_NAME) as db:
+        cursor = await db.execute("SELECT DISTINCT user_id FROM answers")
+        all_users = await cursor.fetchall()
+
+    sent = 0
+    failed = 0
+    for (user_id,) in all_users:
+        try:
+            await context.bot.send_message(chat_id=user_id, text=message_text)
+            sent += 1
+            await asyncio.sleep(0.05)   # ≈ 20 сообщений в секунду — безопасно
+        except Exception as e:
+            logger.warning(f"Не удалось отправить пользователю {user_id}: {e}")
+            failed += 1
+
+    await update.message.reply_text(
+        f"✅ Рассылка завершена: отправлено {sent}, ошибок {failed}."
+    )
+
+async def broadcast_all_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Рассылает фото всем пользователям. 
+       Нужно ответить на фотографию командой /broadcast_all_photo <caption>"""
+    ADMIN_USER_IDS = [675468047, 123456789]   # замените на свои ID
+
+    if update.effective_user.id not in ADMIN_USER_IDS:
+        await update.message.reply_text("У вас нет прав на эту команду.")
+        return
+
+    # Проверяем, что команда отправлена как ответ на сообщение с фото
+    if not update.message.reply_to_message or not update.message.reply_to_message.photo:
+        await update.message.reply_text(
+            "Отправьте фото, затем ответьте на него командой:\n"
+            "/broadcast_all_photo <текст подписи>\n"
+            "Пример: /broadcast_all_photo Приглашаем на новый мастер-класс!"
+        )
+        return
+
+    # Получаем file_id самого большого размера фото
+    photo = update.message.reply_to_message.photo[-1]
+    photo_id = photo.file_id
+
+    # Текст подписи — всё после команды
+    caption = ' '.join(context.args) if context.args else ""
+
+    # Собираем всех уникальных пользователей
+    import aiosqlite
+    DB_NAME = 'data/bot_data.db'   # ваш путь к базе
+    async with aiosqlite.connect(DB_NAME) as db:
+        cursor = await db.execute("SELECT DISTINCT user_id FROM answers")
+        all_users = await cursor.fetchall()
+
+    sent = 0
+    failed = 0
+    for (user_id,) in all_users:
+        try:
+            await context.bot.send_photo(
+                chat_id=user_id,
+                photo=photo_id,
+                caption=caption if caption else None
+            )
+            sent += 1
+            await asyncio.sleep(0.05)
+        except Exception as e:
+            logger.warning(f"Не удалось отправить фото пользователю {user_id}: {e}")
+            failed += 1
+
+    await update.message.reply_text(
+        f"✅ Рассылка фото завершена: отправлено {sent}, ошибок {failed}."
+    )
 
 async def simulate_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Симулирует успешную оплату для тестирования всей воронки.
@@ -620,8 +743,11 @@ async def main():
 
     telegram_app.add_handler(CallbackQueryHandler(handle_watched_response, pattern='^watched_'))
     telegram_app.add_handler(CallbackQueryHandler(handle_reflection_answer, pattern='^reflection_'))
-
-    # ==================== ДЛЯ ТЕСТА ====================
+    
+    # ==================== КОМАНДЫ УПРАВЛЕНИЯ АДМИНА ====================
+    telegram_app.add_handler(CommandHandler("sendmsg", send_message_to_user))
+    telegram_app.add_handler(CommandHandler("broadcast_all", broadcast_to_all_users))
+    telegram_app.add_handler(CommandHandler("broadcast_all_photo", broadcast_all_photo))
     telegram_app.add_handler(CommandHandler("test_payment", simulate_payment))
     telegram_app.add_handler(CommandHandler("fast_forward", fast_forward))
    
