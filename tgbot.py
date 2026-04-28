@@ -40,7 +40,7 @@ VIDEO_2_FILE_ID = "BQACAgIAAxkBAAPvaeP9NqxoD1_shLr1Af2yX1scG-wAAhOjAAIWfSBLSROB1
 VIDEO_3_FILE_ID = "BQACAgIAAxkBAAPxaeP9k2a1UDTL0bnZj4Sq8Hha4F0AAhWjAAIWfSBLNVR39jpWdJY7BA"  # видео для вопроса 5 (да)
 DEFAULT_VIDEO_FILE_ID = "BQACAgIAAxkBAAPvaeP9NqxoD1_shLr1Af2yX1scG-wAAhOjAAIWfSBLSROB1giNwzc7BA"  # общее видео, если условия не сработали
 
-# ==================== ДЛЯ ТЕСТА ====================
+# ==================== ДЛЯ УПРАВЛЕНИЯ ====================
 ADMIN_USER_IDS = [675468047, 753375245]
 
 # ==================== СОСТОЯНИЯ ====================
@@ -733,6 +733,19 @@ async def fast_forward(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await check_watched_mk(context)
     await update.message.reply_text("(для теста) Вопрос о просмотре отправлен. (для теста)")
 
+# ==================== Нерелевантные отеты ====================
+
+async def handle_unrelated_message(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Отвечает на любое неожиданное сообщение."""
+    text = update.message.text
+    if text.startswith('/'):
+        return  # команды обрабатываются отдельно
+    await update.message.reply_text(
+        "Не понял вас :(\n\n"
+        "Пожалуйста, нажмите /start в меню, чтобы начать заново.\n"
+        "Или, если у вас возникли трудности, напишите напрямую @Elena_lagodzich."
+    )
+
 # ==================== MAIN ====================
 
 async def main():
@@ -776,6 +789,8 @@ async def main():
         ],
     )
     telegram_app.add_handler(conv_handler)
+
+    telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unrelated_message), group=2)
 
     # Инициализация и запуск бота
     await telegram_app.initialize()
