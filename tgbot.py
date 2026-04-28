@@ -622,6 +622,8 @@ async def check_payment_loop(order_id: str, chat_id: int, user_id: int, bot,
             return
     logger.warning(f"Платёж {order_id} не был оплачен за {max_attempts * interval} сек.")
 
+# ==================== КОМАНДЫ УПРАВЛЕНИЯ ====================
+
 async def restart(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Перезапуск воронки по /start."""
     context.user_data.clear()
@@ -631,8 +633,6 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
     """Отмена диалога."""
     await update.message.reply_text("Диалог прерван. Для начала напишите /start.")
     return ConversationHandler.END
-
-# ==================== КОМАНДЫ УПРАВЛЕНИЯ АДМИНА ====================
 
 async def send_message_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Отправляет сообщение пользователю по его ID.
@@ -903,26 +903,27 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     if user_id in ADMIN_USER_IDS:
         text = (
             "🛠️ *Команды администратора*\n\n"
-            "/start \\- Начать воронку\n"
-            "/cancel \\- Прервать диалог\n"
-            "/sendmsg \\<ID\\> \\<текст\\> \\- Сообщение пользователю\n"
-            "/broadcast\\_all \\<текст\\> \\- Текстовая рассылка всем\n"
-            "/broadcast\\_all\\_photo \\<подпись\\> \\- Рассылка фото\n"
-            "/export\\_all \\- Экспорт всех данных\n"
-            "/export\\_all ГГГГ-ММ-ДД ГГГГ-ММ-ДД \\- Экспорт за период\n"
-            "/test\\_payment \\- Симуляция оплаты\n"
-            "/fast\\_forward \\- Быстрый переход к рефлексии\n"
-            "/help \\- Это сообщение"
+            "/start - Начать воронку заново\n"
+            "/cancel - Прервать диалог\n"
+            "/sendmsg <ID> <текст> - Отправить сообщение пользователю\n"
+            "/broadcast_all <текст> - Текстовая рассылка всем\n"
+            "/broadcast_all_photo <подпись> - Рассылка фото с подписью\n"
+            "/export_all - Экспорт всех данных в CSV\n"
+            "/export_all ГГГГ-ММ-ДД ГГГГ-ММ-ДД - Экспорт за период\n"
+            "/test_payment - Симуляция оплаты (для тестирования)\n"
+            "/fast_forward - Быстрый переход к рефлексии (для тестирования)\n"
+            "/help - Показать это сообщение"
         )
     else:
         text = (
             "👋 *Помощь по боту*\n\n"
-            "/start \\- Начать воронку заново\n"
-            "/cancel \\- Прервать диалог\n"
-            "/help \\- Показать это сообщение"
+            "/start - Начать все заново\n"
+            "/cancel - Прервать диалог\n"
+            "/help - Показать это сообщение\n\n"
             "Если команды не помогают решить вашу проблему, напишите напрямую @Elena_lagodzich."
         )
-    await update.message.reply_text(text, parse_mode="MarkdownV2")
+    await update.message.reply_text(text, parse_mode="Markdown")
+
 
 # ==================== MAIN ====================
 
@@ -935,7 +936,7 @@ async def main():
     telegram_app.add_handler(CallbackQueryHandler(handle_watched_response, pattern='^watched_'))
     telegram_app.add_handler(CallbackQueryHandler(handle_reflection_answer, pattern='^reflection_'))
     
-    # ==================== КОМАНДЫ УПРАВЛЕНИЯ АДМИНА ====================
+    # ==================== КОМАНДЫ УПРАВЛЕНИЯ ====================
     telegram_app.add_handler(CommandHandler("sendmsg", send_message_to_user))
     telegram_app.add_handler(CommandHandler("broadcast_all", broadcast_to_all_users))
     telegram_app.add_handler(CommandHandler("broadcast_all_photo", broadcast_all_photo))
