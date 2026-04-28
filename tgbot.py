@@ -758,39 +758,92 @@ async def broadcast_all_photo(update: Update, context: ContextTypes.DEFAULT_TYPE
     )
 
 async def export_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Выгружает все таблицы (answers и payments) в CSV и отправляет админу."""
+    """Экспорт всех данных с расшифровкой и фильтрацией по дате."""
     if update.effective_user.id not in ADMIN_USER_IDS:
         await update.message.reply_text("❌ У вас нет прав.")
         return
 
+    args = context.args
+    start_date = end_date = None
+    if len(args) == 2:
+        try:
+            start_date = datetime.strptime(args[0], "%Y-%m-%d").strftime("%Y-%m-%d 00:00:00")
+            end_date = datetime.strptime(args[1], "%Y-%m-%d").strftime("%Y-%m-%d 23:59:59")
+        except ValueError:
+            await update.message.reply_text("Формат даты: ГГГГ-ММ-ДД. Пример: /export_all 2025-04-01 2025-04-30")
+            return
+
+    question_texts = {
+        1: "1. Могу открыто говорить о своих чувствах",
+        2: "2. Понимаю свои потребности в отношениях",
+        3: "3. Знаю, что нужно делать для улучшения отношений",
+        4: "4. Часто сомневаюсь в правильности поступков",
+        5: "5. Слишком много даю и мало получаю взамен",
+        101: "Реф1: Отношения требуют работы и осознанности",
+        102: "Реф2: Чувствую себя более подготовленным(ой)",
+        103: "Реф3: Понял(а) свои собственные потребности",
+    }
+    answer_map = {
+        "answer_yes": "Да", "answer_no": "Нет", "answer_not_always": "Не всегда",
+        "yes": "Да", "no": "Нет", "not_always": "Не всегда",
+        "idk": "Не знаю"
+    }
+    payment_status_map = {"created": "Счёт выставлен", "paid": "Оплачен", "pending": "Ожидает"}
+
     output = io.StringIO()
     writer = csv.writer(output)
 
-    # --- Answers ---
-    writer.writerow(["=== ANSWERS ==="])
-    async with aiosqlite.connect(DB_NAME) as db:
-        cursor = await db.execute("SELECT * FROM answers ORDER BY created_at")
-        rows = await cursor.fetchall()
-        columns = [desc[0] for desc in cursor.description]
-        writer.writerow(columns)
-        writer.writerows(rows)
+    # ---------- ANSWERS ----------
+    writer.writerow(["=== ОТВЕТЫ НА ВОПРОСЫ ==="])
+    writer.writerow(["ID", "User ID", "Username", "Имя", "Вопрос", "Ответ", "Дата"])
 
-        # --- Payments ---
-        writer.writerow([])
-        writer.writerow(["=== PAYMENTS ==="])
-        cursor = await db.execute("SELECT * FROM payments ORDER BY created_at")
+    query = "SELECT id, user_id, username, name, question_id, answer, created_at FROM answers"
+    params = []
+    if start_date and end_date:
+        query += " WHERE created_at BETWEEN ? AND ?"
+        params = [start_date, end_date]
+    query += " ORDER BY created_at"
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        cursor = await db.execute(query, params)
         rows = await cursor.fetchall()
-        columns = [desc[0] for desc in cursor.description]
-        writer.writerow(columns)
-        writer.writerows(rows)
+        for row in rows:
+            q_id = row[4]
+            ans = row[5]
+            writer.writerow([
+                row[0], row[1], row[2] or "", row[3] or "",
+                question_texts.get(q_id, f"Вопрос {q_id}"),
+                answer_map.get(ans, ans)
+            ] + [row[6]])
+
+        # ---------- PAYMENTS ----------
+        writer.writerow([])
+        writer.writerow(["=== ПЛАТЕЖИ ==="])
+        writer.writerow(["Order ID", "User ID", "Сумма (BYN)", "Статус", "Дата"])
+
+        query = "SELECT order_id, user_id, amount, status, created_at FROM payments"
+        params = []
+        if start_date and end_date:
+            query += " WHERE created_at BETWEEN ? AND ?"
+            params = [start_date, end_date]
+        query += " ORDER BY created_at"
+
+        cursor = await db.execute(query, params)
+        rows = await cursor.fetchall()
+        for row in rows:
+            writer.writerow([row[0], row[1], row[2], payment_status_map.get(row[3], row[3]), row[4]])
 
     output.seek(0)
+    filename = "export.csv"
+    if start_date and end_date:
+        filename = f"export_{args[0]}_{args[1]}.csv"
     await context.bot.send_document(
         chat_id=update.effective_chat.id,
         document=output.getvalue().encode('utf-8-sig'),
-        filename="full_export.csv",
-        caption="📊 Полный экспорт всех данных"
+        filename=filename,
+        caption="📊 Данные экспортированы" + (f" за период {args[0]} – {args[1]}" if start_date else "")
     )
+
 
 async def simulate_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Симулирует успешную оплату для тестирования всей воронки.
@@ -849,16 +902,17 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id in ADMIN_USER_IDS:
         text = (
-            "🛠️ *Команды для администратора*\n\n"
-            "/start \\- Начать воронку заново\n"
+            "🛠️ *Команды администратора*\n\n"
+            "/start \\- Начать воронку\n"
             "/cancel \\- Прервать диалог\n"
-            "/sendmsg \\<user\\_id\\> \\<текст\\> \\- Отправить сообщение пользователю\n"
+            "/sendmsg \\<ID\\> \\<текст\\> \\- Сообщение пользователю\n"
             "/broadcast\\_all \\<текст\\> \\- Текстовая рассылка всем\n"
-            "/broadcast\\_all\\_photo \\<подпись\\> \\- Рассылка фото с подписью\n"
-            "/export\\_all \\- Выгрузить все данные в CSV\n"
+            "/broadcast\\_all\\_photo \\<подпись\\> \\- Рассылка фото\n"
+            "/export\\_all \\- Экспорт всех данных\n"
+            "/export\\_all ГГГГ-ММ-ДД ГГГГ-ММ-ДД \\- Экспорт за период\n"
             "/test\\_payment \\- Симуляция оплаты\n"
-            "/fast\\_forward \\- Мгновенно задать вопрос после МК\n"
-            "/help \\- Показать это сообщение"
+            "/fast\\_forward \\- Быстрый переход к рефлексии\n"
+            "/help \\- Это сообщение"
         )
     else:
         text = (
@@ -888,7 +942,7 @@ async def main():
     telegram_app.add_handler(CommandHandler("export_all", export_all))
     telegram_app.add_handler(CommandHandler("test_payment", simulate_payment))
     telegram_app.add_handler(CommandHandler("fast_forward", fast_forward))
-    
+
     telegram_app.add_handler(CommandHandler("help", help_command))
    
     conv_handler = ConversationHandler(
