@@ -4,6 +4,7 @@ import logging
 import hashlib
 import hmac
 import aiosqlite
+import csv, io
 from datetime import datetime
 from typing import Optional
 from decimal import Decimal
@@ -756,6 +757,41 @@ async def broadcast_all_photo(update: Update, context: ContextTypes.DEFAULT_TYPE
         f"✅ Рассылка фото завершена: отправлено {sent}, ошибок {failed}."
     )
 
+async def export_all(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Выгружает все таблицы (answers и payments) в CSV и отправляет админу."""
+    if update.effective_user.id not in ADMIN_USER_IDS:
+        await update.message.reply_text("❌ У вас нет прав.")
+        return
+
+    output = io.StringIO()
+    writer = csv.writer(output)
+
+    # --- Answers ---
+    writer.writerow(["=== ANSWERS ==="])
+    async with aiosqlite.connect(DB_NAME) as db:
+        cursor = await db.execute("SELECT * FROM answers ORDER BY created_at")
+        rows = await cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        writer.writerow(columns)
+        writer.writerows(rows)
+
+        # --- Payments ---
+        writer.writerow([])
+        writer.writerow(["=== PAYMENTS ==="])
+        cursor = await db.execute("SELECT * FROM payments ORDER BY created_at")
+        rows = await cursor.fetchall()
+        columns = [desc[0] for desc in cursor.description]
+        writer.writerow(columns)
+        writer.writerows(rows)
+
+    output.seek(0)
+    await context.bot.send_document(
+        chat_id=update.effective_chat.id,
+        document=output.getvalue().encode('utf-8-sig'),
+        filename="full_export.csv",
+        caption="📊 Полный экспорт всех данных"
+    )
+
 async def simulate_payment(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Симулирует успешную оплату для тестирования всей воронки.
        Доступно только админу (проверка по user_id)."""
@@ -823,6 +859,7 @@ async def main():
     telegram_app.add_handler(CommandHandler("sendmsg", send_message_to_user))
     telegram_app.add_handler(CommandHandler("broadcast_all", broadcast_to_all_users))
     telegram_app.add_handler(CommandHandler("broadcast_all_photo", broadcast_all_photo))
+    telegram_app.add_handler(CommandHandler("export_all", export_all))
     telegram_app.add_handler(CommandHandler("test_payment", simulate_payment))
     telegram_app.add_handler(CommandHandler("fast_forward", fast_forward))
    
