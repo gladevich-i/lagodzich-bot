@@ -901,6 +901,32 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id in ADMIN_USER_IDS:
         text = (
+            "<b>🛠️ Команды администратора</b>\n\n"
+            "/start - Начать воронку заново\n"
+            "/cancel - Прервать диалог\n"
+            "/sendmsg ID текст - Отправить сообщение пользователю\n"
+            "/broadcast_all текст - Текстовая рассылка всем\n"
+            "/broadcast_all_photo подпись - Рассылка фото с подписью\n"
+            "/export_all - Экспорт всех данных в CSV\n"
+            "/export_all ГГГГ-ММ-ДД ГГГГ-ММ-ДД - Экспорт за период\n"
+            "/test_payment - Симуляция оплаты\n"
+            "/fast_forward - Быстрый переход к рефлексии\n"
+            "/help - Показать это сообщение"
+        )
+    else:
+        text = (
+            "<b>👋 Помощь по боту</b>\n\n"
+            "/start - Начать все заново\n"
+            "/cancel - Прервать диалог\n"
+            "/help - Показать это сообщение\n\n"
+            "Если команды не помогают решить вашу проблему, напишите напрямую @Elena_lagodzich."
+        )
+    await update.message.reply_text(text, parse_mode="HTML")
+
+#async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_id = update.effective_user.id
+    if user_id in ADMIN_USER_IDS:
+        text = (
             "🛠️ *Команды администратора*\n\n"
             "/start \\- Начать воронку заново\n"
             "/cancel \\- Прервать диалог\n"
