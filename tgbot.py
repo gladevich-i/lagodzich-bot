@@ -3,6 +3,7 @@ import os
 import logging
 import hashlib
 import hmac
+import aiosqlite
 from datetime import datetime
 from typing import Optional
 from decimal import Decimal
@@ -24,6 +25,7 @@ from telegram.ext import (
 )
 
 # ==================== НАСТРОЙКИ ====================
+DB_NAME = '/app/data/bot_data.db'
 TOKEN = os.getenv("BOT_TOKEN")
 EASYPAY_MERCHANT_ID = os.getenv("EASYPAY_MERCHANT_ID", "ВАШ_MERCHANT_ID")
 EASYPAY_SECRET_KEY = os.getenv("EASYPAY_SECRET_KEY", "ВАШ_SECRET_KEY")
@@ -57,6 +59,32 @@ ADMIN_USER_IDS = [675468047, 753375245]
     SELF_REFLECTION_2,
     SELF_REFLECTION_3,
 ) = range(11)
+
+async def init_db():
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS answers (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                user_id INTEGER NOT NULL,
+                username TEXT,
+                name TEXT,
+                question_id INTEGER NOT NULL,
+                answer TEXT NOT NULL,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        # Таблица для платежей и статуса рефлексии
+        await db.execute('''
+            CREATE TABLE IF NOT EXISTS payments (
+                order_id TEXT PRIMARY KEY,
+                user_id INTEGER NOT NULL,
+                amount REAL,
+                status TEXT DEFAULT 'pending',
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        await db.commit()
+        logger.info("База данных инициализирована успешно.")
 
 logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
@@ -111,6 +139,13 @@ async def grant_access_after_payment(user_id: int, bot):
         except Exception as fallback_e:
             logger.error(f"Не удалось отправить даже общую ссылку: {fallback_e}")
             pass
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+        'UPDATE payments SET status = ? WHERE order_id = ?',
+        ('paid')
+        )
+    await db.commit()
 
     if telegram_app and telegram_app.job_queue:
         telegram_app.job_queue.run_once(
@@ -195,6 +230,19 @@ async def handle_reflection_answer(update: Update, context: ContextTypes.DEFAULT
         'question': q_num,
         'answer': ans
     })
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+            'INSERT INTO answers (user_id, username, name, question_id, answer) VALUES (?, ?, ?, ?, ?)',
+            (
+                update.effective_user.id,
+                update.effective_user.username,
+                context.user_data.get("name", "Неизвестный"),
+                100 + q_num,               # 101, 102, 103 – вопросы рефлексии
+                ans
+            )
+        )
+        await db.commit()
 
     if q_num < 3:
         # Следующий вопрос
@@ -297,6 +345,13 @@ async def handle_question_answer(update: Update, context: ContextTypes.DEFAULT_T
         context.user_data["answers"] = []
     q_num = context.user_data.get("current_question", 0) + 1
     context.user_data["answers"].append({"question": q_num, "answer": answer})
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+        'INSERT INTO answers (user_id, username, name, question_id, answer) VALUES (?, ?, ?, ?, ?)',
+        (update.effective_user.id, update.effective_user.username, context.user_data.get("name"), q_num, answer)
+        )
+    await db.commit()
 
     questions = [
         "1. Могу открыто говорить о своих чувствах и желаниях.",
@@ -507,6 +562,13 @@ async def start_payment(update: Update, context: ContextTypes.DEFAULT_TYPE) -> i
         logger.error(f"Ошибка запроса к Easypay: {e}")
         await query.edit_message_text("Сервис оплаты временно недоступен. Попробуйте позже.")
         return ConversationHandler.END
+
+    async with aiosqlite.connect(DB_NAME) as db:
+        await db.execute(
+        'INSERT OR REPLACE INTO payments (order_id, user_id, amount, status) VALUES (?, ?, ?, ?)',
+        (order_id, user_id, 50.00, 'created')
+        )
+    await db.commit()
 
     await asyncio.sleep(5)
     await context.bot.send_message(
@@ -792,6 +854,8 @@ async def main():
 
     telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unrelated_message))
 
+    await init_db()
+    
     # Инициализация и запуск бота
     await telegram_app.initialize()
     await telegram_app.start()
