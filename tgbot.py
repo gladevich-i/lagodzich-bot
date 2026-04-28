@@ -790,7 +790,7 @@ async def main():
     )
     telegram_app.add_handler(conv_handler)
 
-    telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unrelated_message), group=2)
+    telegram_app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_unrelated_message))
 
     # Инициализация и запуск бота
     await telegram_app.initialize()
