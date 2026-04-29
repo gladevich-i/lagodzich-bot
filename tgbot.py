@@ -923,6 +923,16 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     await update.message.reply_text(text, parse_mode="HTML")
 
+async def get_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message.video:
+        fid = update.message.video.file_id
+        await update.message.reply_text(f"🎬 video file_id:\n`{fid}`", parse_mode="Markdown")
+    elif update.message.document:
+        fid = update.message.document.file_id
+        await update.message.reply_text(f"📎 document file_id:\n`{fid}`", parse_mode="Markdown")
+    else:
+        await update.message.reply_text("Отправьте видео (как видео или как файл).")
+
 # ==================== MAIN ====================
 
 async def main():
@@ -943,6 +953,8 @@ async def main():
     telegram_app.add_handler(CommandHandler("fast_forward", fast_forward))
 
     telegram_app.add_handler(CommandHandler("help", help_command))
+
+    telegram_app.add_handler(MessageHandler(filters.VIDEO | filters.Document.ALL, get_file_id), group=1)
    
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
