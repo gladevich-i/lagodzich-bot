@@ -38,10 +38,10 @@ EXPERT_CHANNEL_LINK = "https://t.me/lagodzich"
 WELCOME_PHOTO_ID = "AgACAgIAAxkBAAICT2nvi1KApvmCnUqGtMHf5xo_RdKmAAIYGWsb0QqBS9ZRDEWka5-DAQADAgADeAADOwQ"   
 
 # ID видео в Telegram (получить через @getidsbot)
-VIDEO_1_FILE_ID = "BQACAgIAAxkBAAPtaeP82oFM3nVLgOJk6PSHpT3BPMcAAhKjAAIWfSBLaj7yaTknOuA7BA"  # видео для вопроса 1 (нет/не всегда)
-VIDEO_2_FILE_ID = "BQACAgIAAxkBAAPvaeP9NqxoD1_shLr1Af2yX1scG-wAAhOjAAIWfSBLSROB1giNwzc7BA"  # видео для вопроса 4 (да)
-VIDEO_3_FILE_ID = "BQACAgIAAxkBAAPxaeP9k2a1UDTL0bnZj4Sq8Hha4F0AAhWjAAIWfSBLNVR39jpWdJY7BA"  # видео для вопроса 5 (да)
-DEFAULT_VIDEO_FILE_ID = "BQACAgIAAxkBAAPvaeP9NqxoD1_shLr1Af2yX1scG-wAAhOjAAIWfSBLSROB1giNwzc7BA"  # общее видео, если условия не сработали
+VIDEO_1_FILE_ID = "BAACAgIAAxkBAAIDMGnyLh8H3OblDdxBlmpRHZFWIGW2AAKdqwACkfCRS0sE3l4TePDxOwQ"  # видео для вопроса 1 (нет/не всегда)
+VIDEO_2_FILE_ID = "BAACAgIAAxkBAAIDMmnyLrHSqqw05B0aoepDB7ewBi4DAAKjqwACkfCRS_88NQrim3ihOwQ"  # видео для вопроса 4 (да)
+VIDEO_3_FILE_ID = "BAACAgIAAxkBAAIDNGnyLt7Ty1ejOAf5UCBFETK2r_RQAAKkqwACkfCRSxSgN-1cK8euOwQ"  # видео для вопроса 5 (да)
+DEFAULT_VIDEO_FILE_ID = "BAACAgIAAxkBAAIDMmnyLrHSqqw05B0aoepDB7ewBi4DAAKjqwACkfCRS_88NQrim3ihOwQ"  # общее видео, если условия не сработали
 
 # ==================== ДЛЯ УПРАВЛЕНИЯ ====================
 ADMIN_USER_IDS = [675468047, 753375245]
@@ -404,9 +404,9 @@ async def send_video_based_on_answers(update: Update, context: ContextTypes.DEFA
 
     # Отправляем файл (документ)
     try:
-        await context.bot.send_document(
+        await context.bot.send_video(
             chat_id=update.effective_chat.id,
-            document=video_id,
+            video=video_id,
             caption=(
              "Посмотрите этот небольшой отрывок из *мастер‑класса Елены Лагодич про психологию отношений и близости*.\n\n"
              "В нём вы сможете найти полезную информацию о своих отношениях с друзьями и близкими!"
@@ -923,16 +923,6 @@ async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
     await update.message.reply_text(text, parse_mode="HTML")
 
-async def get_file_id(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message.video:
-        fid = update.message.video.file_id
-        await update.message.reply_text(f"video file_id:\n`{fid}`")
-    elif update.message.document:
-        fid = update.message.document.file_id
-        await update.message.reply_text(f"document file_id:\n`{fid}`")
-    else:
-        await update.message.reply_text("Отправьте видео (как видео или как файл).")
-
 # ==================== MAIN ====================
 
 async def main():
@@ -953,8 +943,6 @@ async def main():
     telegram_app.add_handler(CommandHandler("fast_forward", fast_forward))
 
     telegram_app.add_handler(CommandHandler("help", help_command))
-
-    telegram_app.add_handler(MessageHandler(filters.VIDEO | filters.Document.ALL, get_file_id), group=1)
    
     conv_handler = ConversationHandler(
         entry_points=[CommandHandler("start", start)],
