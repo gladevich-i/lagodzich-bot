@@ -443,9 +443,10 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
 
     if feedback == "video_feedback_no":
         await query.edit_message_text(
-            "Спасибо за проявленный интерес! 😊\n"
+            text="Спасибо за проявленный интерес! 😊\n"
             "В скором времени появятся мастер-классы и на другие темы, будем рады видеть вас снова!\n\n"
-            "Следите за обновлениями в телеграм-канале"
+            "Следите за обновлениями в телеграм-канале",
+            parse_mode="Markdown",
             reply_markup=InlineKeyboardMarkup([
                 [InlineKeyboardButton("🔔 Перейти", url=EXPERT_CHANNEL_LINK)]
             ])
