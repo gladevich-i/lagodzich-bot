@@ -44,7 +44,7 @@ VIDEO_3_FILE_ID = "BAACAgIAAxkBAAIDNGnyLt7Ty1ejOAf5UCBFETK2r_RQAAKkqwACkfCRSxSgN
 DEFAULT_VIDEO_FILE_ID = "BAACAgIAAxkBAAIDMmnyLrHSqqw05B0aoepDB7ewBi4DAAKjqwACkfCRS_88NQrim3ihOwQ"  # общее видео, если условия не сработали
 
 # ==================== ДЛЯ УПРАВЛЕНИЯ ====================
-ADMIN_USER_IDS = [675468047, 753375245]
+ADMIN_USER_IDS = [753375245, 675468047]
 
 # ==================== СОСТОЯНИЯ ====================
 (
@@ -444,7 +444,11 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
     if feedback == "video_feedback_no":
         await query.edit_message_text(
             "Спасибо за проявленный интерес! 😊\n"
-            "В скором времени появятся мастер-классы и на другие темы, будем рады видеть вас снова!"
+            "В скором времени появятся мастер-классы и на другие темы, будем рады видеть вас снова!\n\n"
+            "Следите за обновлениями в телеграм-канале"
+            reply_markup=InlineKeyboardMarkup([
+                [InlineKeyboardButton("🔔 Перейти", url=EXPERT_CHANNEL_LINK)]
+            ])
         )
         return ConversationHandler.END
     else:
@@ -459,7 +463,8 @@ async def handle_video_feedback(update: Update, context: ContextTypes.DEFAULT_TY
             "✅ Техники, которые помогут вашим отношениям уже сегодня\n\n"
             "А также получите презентацию с полезными лайфхаками и упражнениями!\n\n"
             "Стоимость доступа — всего 50 бел. руб.\n\n"
-            "👇 Нажмите кнопку ниже для оплаты."
+            "👇 Нажмите кнопку ниже для оплаты.\n"
+            "_Нажимая на кнопку вы принимаете все условия договора публичной оферты_"
         )
         keyboard = [[InlineKeyboardButton("💳 Перейти к оплате", callback_data="start_payment")]]
         reply_markup = InlineKeyboardMarkup(keyboard)
@@ -637,7 +642,7 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE) -> int:
 async def send_message_to_user(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Отправляет сообщение пользователю по его ID.
        Использование: /sendmsg <user_id> <текст сообщения>"""
-    ADMIN_USER_IDS = [675468047, 753375245]  # ваши ID
+    ADMIN_USER_IDS = [753375245, 675468047]  # ваши ID
 
     if update.effective_user.id not in ADMIN_USER_IDS:
         await update.message.reply_text("У вас нет прав на эту команду.")
@@ -671,7 +676,7 @@ async def send_message_to_user(update: Update, context: ContextTypes.DEFAULT_TYP
 
 async def broadcast_to_all_users(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Рассылает сообщение ВСЕМ пользователям, которые запускали бота."""
-    ADMIN_USER_IDS = [675468047, 753375245]   # ← замените на свои ID
+    ADMIN_USER_IDS = [753375245, 675468047]   # ← замените на свои ID
 
     if update.effective_user.id not in ADMIN_USER_IDS:
         await update.message.reply_text("У вас нет прав на эту команду.")
@@ -709,7 +714,7 @@ async def broadcast_to_all_users(update: Update, context: ContextTypes.DEFAULT_T
 async def broadcast_all_photo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Рассылает фото всем пользователям. 
        Нужно ответить на фотографию командой /broadcast_all_photo <caption>"""
-    ADMIN_USER_IDS = [675468047, 123456789]   # замените на свои ID
+    ADMIN_USER_IDS = [753375245, 675468047]   # замените на свои ID
 
     if update.effective_user.id not in ADMIN_USER_IDS:
         await update.message.reply_text("У вас нет прав на эту команду.")
